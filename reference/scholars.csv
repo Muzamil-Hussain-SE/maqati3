@@ -1,0 +1,20 @@
+# DRAFT - check the selection and the dates before use. Once an id is issued it never changes.
+id,name_ar,name_en,type,died_h,died_ce,note
+ibn-baz,عبد العزيز بن عبد الله بن باز,Ibn Bāz,person,1420,1999,
+ibn-uthaymin,محمد بن صالح العثيمين,Ibn ʿUthaymīn,person,1421,2001,
+al-albani,محمد ناصر الدين الألباني,al-Albānī,person,1420,1999,
+al-fawzan,صالح بن فوزان الفوزان,Sālih al-Fawzān,person,,,living
+al-luhaydan,صالح بن محمد اللحيدان,Sālih al-Luhaydān,person,1443,2022,
+al-ghudayyan,عبد الله بن عبد الرحمن الغديان,ʿAbdullāh al-Ghudayyān,person,1431,2010,
+ibn-jibrin,عبد الله بن عبد الرحمن بن جبرين,Ibn Jibrīn,person,1430,2009,
+muqbil,مقبل بن هادي الوادعي,Muqbil b. Hādī al-Wādiʿī,person,1422,2001,
+an-najmi,أحمد بن يحيى النجمي,Ahmad an-Najmī,person,1429,2008,
+zayd-al-madkhali,زيد بن محمد المدخلي,Zayd al-Madkhalī,person,1435,2014,
+rabi-al-madkhali,ربيع بن هادي المدخلي,Rabīʿ al-Madkhalī,person,,,living
+ubayd-al-jabiri,عبيد بن عبد الله الجابري,ʿUbayd al-Jābirī,person,,2023,
+al-abbad,عبد المحسن بن حمد العباد البدر,ʿAbdulmuhsin al-ʿAbbād,person,,,living
+abdurrazzaq-al-badr,عبد الرزاق بن عبد المحسن البدر,ʿAbdurrazzāq al-Badr,person,,,living
+as-suhaymi,صالح بن سعد السحيمي,Sālih as-Suhaymī,person,,,living
+bazmul,محمد بن عمر بازمول,Muhammad Bāzmūl,person,,,living
+lajna-daima,اللجنة الدائمة للبحوث العلمية والإفتاء,Permanent Committee,institution,,,collective body - note the individual signatory where known
+hayat-kibar,هيئة كبار العلماء,Council of Senior Scholars,institution,,,collective body

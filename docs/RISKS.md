@@ -1,0 +1,259 @@
+# Risiken
+
+*Aus dem adversarialen Kritiker-Agenten.*
+
+## Kill Shots — woran das Projekt realistisch scheitert
+
+- Die Uebersetzungs- und Review-Arbeit ist um ein bis zwei Groessenordnungen groesser als das Freiwilligenteam. 1.000 Audiostunden kosten realistisch 20.000-25.000 Personenstunden (Korrektur bei 20-40 Prozent WER plus MT-Post-Editing in zwei Zielsprachen plus Review). Bei 20 Freiwilligen a 4 Stunden pro Woche sind das 5-6 Jahre fuer ein Fuenftel des Zielkorpus. Nicht die Technik scheitert, sondern die Mengenannahme. Wer mit 50.000 Videos plant, plant mit 160.000-200.000 Personenstunden.
+
+- Ein einziger oeffentlich gewordener Zuschreibungsfehler zerstoert die Plattform dauerhaft. Vertrauen in diesem Feld ist binaer: ein falsch zugeschriebenes Audio, eine gekippte Nuance in einer Talaq- oder Takfir-Frage, ein Screenshot in einer grossen Gruppe - und die Plattform ist fuer immer die Seite, die Ibn Baz etwas in den Mund gelegt hat. Technisch reparierbar, sozial nicht. Das Risiko steigt linear mit der Korpusgroesse und faellt mit der Pruefdichte, also mit genau der Ressource, die fehlt.
+
+- Bus-Faktor 1 bei sechs erforderlichen Spezialgebieten (arabische ASR, Forced Alignment, cross-linguales RAG, RTL-Frontend mit sechsstelliger Seitenzahl, Linux-Ops, deutsches Medien- und Datenschutzrecht) plus Community-Management. Das Projekt stirbt nicht an einem Fehler, sondern an der Erschoepfung einer Person - und danach kann niemand das System auch nur am Leben halten.
+
+- Governance-Vakuum: ohne einen namentlich verantwortlichen Bruder mit Ilm ist das Produkt unverantwortlich; mit ihm ist er Flaschenhals und Haftungssubjekt. Und schon die Liste der aufgenommenen Gelehrten ist eine manhaj-politische Positionierung in einem laufenden Spaltungskonflikt - sie spaltet das Team, bevor Code existiert, und entscheidet, von wem ihr Material und von wem ihr Gegenwind bekommt.
+
+- Die KI-Schicht ist genau der Teil, den die konservative Zielgruppe ablehnt (islamqa hat eine Fatwa gegen KI-Fatawa, Dar al-Ifta ein Verbot). Es ist moeglich, neun Monate zu bauen und als Antwort nicht man fragt keine Maschine zu hoeren statt das ist falsch zitiert. Dann ist der wertvolle Teil - das durchsuchbare Archiv - fertig, und der Chatbot ist der Grund, warum er nicht benutzt wird.
+
+- Rechtlich-politische Deplattformierung in Deutschland: ein isoliert ausgegebener Chunk zu Takfir oder Wala wa Bara in einem Presseartikel, danach Hoster, Zahlungsdienstleister und Domain in Kette. Zusaetzlich das wahrscheinlichste Einzelereignis - eine einstweilige Verfuegung wegen einer uebersetzten Aeusserung ueber eine lebende, in Deutschland ansaessige Person. Ohne Verein als Traeger und ohne Export-First-Betrieb ist beides existenzbedrohend.
+
+- Der Korpus ist korrekt und die Antworten sind trotzdem falsch, weil muendliche Fatawa situationsgebunden sind und ihr Datenmodell das nicht abbildet. Kein Modell, kein Reranker und kein Verifier loest das - nur Pflichtfelder fuer Fragetext, Anlass, Datum und Allgemeinheitsgrad, die ein Mensch setzen muss. Also haengt auch dieser Punkt wieder an der Personalrechnung in Kill Shot 1.
+
+---
+## Zuerst entschärfen
+
+- Durchsatzmessung statt Schaetzung (1 Nachmittag, 0 EUR): drei Freiwillige, je 30 Minuten echtes Audio aus eurem Zielmaterial, voller Durchlauf mit Stoppuhr - ASR-Korrektur, DE-Uebersetzung, Review durch einen Zweiten. Ergebnis mit der real verfuegbaren Wochenkapazitaet multiplizieren. Diese eine Zahl entscheidet ueber die gesamte Korpus-Zielgroesse, und sie entscheidet sie vermutlich gegen 50.000 Videos. Alles andere zu planen, bevor diese Zahl da ist, ist verschwendete Zeit.
+- Zuschreibungs-Stichprobe im Rohmaterial (1 Tag, 0 EUR): 30 zufaellige Clips, die bereits in Telegram/YouTube als Fatawa der genannten Gelehrten kursieren, von einem Kenner gegen binbaz.org.sa, binothaimeen.net und alifta.gov.sa pruefen lassen. Wie hoch ist die Falschzuschreibungsrate? Liegt sie ueber 10 Prozent, ist der Community-Upload-Weg als Primaerquelle tot und ihr duerft ausschliesslich von offiziellen Quellen ingestieren - das aendert die gesamte Ingest-Architektur und spart Monate.
+- Adversariales Fragenset VOR dem Bau (2 Tage, unter 50 USD): 50 Fragen schreiben, die das System kaputtmachen sollen - Negationen, hat Scheich X je gesagt, Minimalpaare (Reisender/Ansaessiger), Vergleichsfragen, Takfir, Talaq in Ich-Form, Gelehrter-gegen-Gelehrten, Themen mit duenner Abdeckung, zeitgebundene Fragen. Dann einen Wegwerf-Prototyp mit 50 Videos und einem Frontier-Modell bauen und die 50 Fragen stellen. Von einem Bruder mit Ilm bewerten lassen. Das sagt euch in Woche 1, ob die Produktidee tragfaehig ist - und nicht in Monat 9.
+- Nuancen-Test der Uebersetzung (1 Tag, 0 EUR): 20 Saetze mit makruh/haram, la yanbaghi, al-ahwat, fihi tafsil und Konditionalkonstruktionen durch MT und durch zwei Freiwillige laufen lassen. Zaehlen, wie oft die Rechtsnuance kippt. Ueber 20 Prozent heisst: reines Post-Editing reicht nicht, das Urteil muss als kontrolliertes Enum separat erfasst werden - und die Personalrechnung aus Punkt 1 wird noch schlechter.
+- Autoritaets- und Erlaubnisanfrage (eine E-Mail): eine Seite Konzept auf Arabisch an zwei bis drei Stiftungen und Redaktionen (binothaimeen.net, miraath.net, al-Fawzan-Buero) mit der Bitte um Erlaubnis und um Rueckmeldung zur Idee. Die Antwort - oder das Schweigen - ist das wichtigste Signal des gesamten Projekts: ohne sie ist es weder rechtlich noch religioes gedeckt, und binothaimeen.net hat in robots.txt bereits ein ausdrueckliches TDM-Opt-out gesetzt. Formuliert euch dabei als Index und Suche in den Worten der Gelehrten, nie als Mufti.
+- Rechts-Check vor jeder Zeile Produktionscode (90 Minuten, 300-500 EUR): Anwalt fuer IT- und Aeusserungsrecht, drei Fragen - Traegerstruktur und Impressum, Haftung fuer uebersetzte Aeusserungen ueber lebende Personen, Art. 9 DSGVO beim Chat ohne Account. Das ist die billigste Versicherung im Projekt und verhindert genau die zwei wahrscheinlichsten Rechtsereignisse.
+- Kostendeckel-Test und Timestamp-Integritaetstest als CI ab Tag 1 (je ein halber Tag): 10.000 Requests gegen den eigenen Endpoint fahren und pruefen, ob der Tages-Hardcap wirklich greift, bevor irgendetwas oeffentlich ist. Parallel den Cron bauen, der 50 zufaellige Chunks zieht, das Audio ab start_ms erneut per ASR prueft und bei unter 70 Prozent Uebereinstimmung alarmiert - plus die Canary-Row mit state=pending, die stuendlich testet, ob der Review-Filter noch im Retrieval-Pfad liegt. Beides sind die einzigen Schutzmechanismen gegen die zwei stillsten Fehlerklassen.
+- Scope-Entscheidung schriftlich festhalten (1 Besprechung): welche Gelehrten, welche Themen NICHT (Jarh wa Tadil, Personenurteile, Talaq, Erbe, Takfir, Gelubde), wer der Muraji ist und mit welchem realistischen Monatspensum. Diese drei Festlegungen sind keine Buerokratie - sie bestimmen das Datenschema, den Intent-Classifier und die Haftungslage. Wer sie nachtraeglich trifft, baut den Korpus zweimal.
+
+---
+## Vollständige Risikoliste
+
+### Synthetische Fatwa durch Querverschmelzung zweier Gelehrter
+**inhaltlich-religioes** · Schwere: kritisch · Wahrscheinlichkeit: fast sicher ohne strukturelle Gegenmassnahme
+
+*Szenario:* Frage: Ist der Duff bei der Hochzeit erlaubt? Retrieval liefert 4 Chunks von Ibn Baz (Erlaubnis fuer Frauen bei der Walima) und 3 von al-Albani (Ueberlieferungslage, mit der Einschraenkung, dass keine Maenner zuhoeren). Das Modell schreibt: Die Gelehrten erlauben den Duff bei der Hochzeit, sofern keine Maenner anwesend sind. Jeder Teilsatz ist durch einen Chunk gedeckt, jedes Zitat korrekt verlinkt - und trotzdem existiert diese Fatwa bei keinem der beiden. Die Bedingung stammt von A, die Erlaubnis von B, und A hat die Bedingung nie an diese Erlaubnis geknuepft. Entailment-Pruefung faengt das nicht, weil jeder einzelne Satz entailed ist. Der Nutzer handelt danach und schreibt es Ibn Baz zu.
+
+*Frühwarnsignal:* In einem Testlauf von 50 Fragen enthalten Antworten kollektive Formulierungen ohne Namen: die Gelehrten, man ist sich einig, nach Ansicht der Gelehrten. Jedes Vorkommen ist ein Treffer.
+
+*Gegenmaßnahme:* Strukturell, nicht per Prompt. (1) Ein Evidenzblock pro Gelehrtem; Chunks verschiedener Gelehrter landen nie im selben Block. (2) Antwortschema ohne Feld fuer eine kollektive Meinung - nur eine Liste von Positionen, jede mit genau einer scholar_id, einem Dalil-Feld und mindestens einem Zitat. Was kein Feld hat, kann das Modell nicht schreiben. (3) Verifier prueft Attributionsdeckung: stuetzt eine al-Albani-chunk_id einen Satz, der Ibn Baz zugeschrieben ist, faellt die Antwort durch. (4) Regex-Blockliste auf kollektive Formulierungen als letzte Schranke.
+
+### Situationsgebundene Fatwa wird als allgemeine Regel ausgegeben
+**inhaltlich-religioes** · Schwere: kritisch · Wahrscheinlichkeit: fast sicher
+
+*Szenario:* Der Fragesteller schildert zwei Minuten lang seine Lage: er lebt im Westen, hat keine andere Arbeit, die Familie haengt davon ab. Der Gelehrte antwortet 40 Sekunden: in deinem Fall ist kein Problem darin. Euer Chunking schneidet an der Q/A-Grenze, das Retrieval holt genau diese 40 Sekunden, der Deep-Link springt genau dorthin. Das System gibt aus: Scheich X erlaubt die Arbeit bei einer Bank, Beleg: Video, Minute 14:20. Die konditionierende Not und die Rueckfrage danach (aber suche weiter nach anderer Arbeit) sind nicht im Chunk. Das ist kein Modellfehler, sondern ein Datenmodellfehler - und er betrifft die Mehrheit aller Audio-Fatawa, weil muendliche Antworten fast immer auf einen konkreten Fall gegeben werden.
+
+*Frühwarnsignal:* Bei einer Stichprobe von 30 Antworten laesst sich zu mehr als einem Drittel der zitierten Chunks nicht aus dem Chunk selbst sagen, ob die Aussage allgemein oder fallbezogen gemeint war. Das ist messbar, ohne Nutzer zu haben.
+
+*Gegenmaßnahme:* Pflichtfelder im Schema, nicht im Prompt: question_text_ar (voller Fragetext des Fragestellers), context_note (Anlass, Ort, Sendung, Jahr), generality (allgemein | fallbezogen | unklar, vom Reviewer gesetzt, Default unklar). Regel im Retrieval: Chunks mit generality != allgemein duerfen nur ausgegeben werden, wenn der Fragetext des Fragestellers mitgeliefert und in der UI ueber der Antwort angezeigt wird. Deep-Link setzt immer 20 Sekunden VOR den Chunk, nie auf dessen Anfang. Wo generality = unklar ist, keine Synthese, nur Verweis auf das Video.
+
+### Positionswechsel (Ruju) des Gelehrten bleibt unsichtbar
+**inhaltlich-religioes** · Schwere: kritisch · Wahrscheinlichkeit: hoch (steigt mit Korpusgroesse)
+
+*Szenario:* Al-Albani hat Hadith-Gradierungen mehrfach revidiert (Verschiebungen zwischen Silsila Daifa und Sahiha), Ibn Uthaymin hat in einzelnen Masail widerrufen. Im Korpus liegen eine Kassette von 1988 und ein Vortrag von 1997, beide zum selben Thema. Das Retrieval waehlt die aeltere, weil sie semantisch besser passt (deutlicher formuliert, weniger Nebensaetze). Das System zitiert eine Position, die der Gelehrte selbst zurueckgezogen hat - mit Namen, Datum und Deep-Link, also maximal glaubwuerdig. Das ist durch kein Retrieval loesbar, weil die Information, dass ein Ruju stattfand, nicht im Text steht.
+
+*Frühwarnsignal:* Zwei Chunks desselben Gelehrten zum selben Thema mit Datumsabstand > 3 Jahre und widersprechendem Urteil. Das laesst sich automatisch finden, sobald scholar_id, Datum und Thema sauber erfasst sind - und ist genau die Liste, die ein Reviewer durchgehen muss.
+
+*Gegenmaßnahme:* Felder supersedes / superseded_by auf Chunk-Ebene plus ein Flag ruju_bekannt. Automatischer Konfliktdetektor: gleicher Gelehrter, gleiches Thema, widersprechende Urteilswoerter -> Eintrag in eine Review-Queue, bis dahin BEIDE Fundstellen mit Datum nebeneinander anzeigen und keine Synthese. Datum ist damit ein Pflichtfeld, kein nice-to-have: ein undatiertes Audio darf nicht in Konfliktfaellen zitiert werden. Realistisch loest das nur ein Mensch mit Ilm - also die Konfliktliste kurz halten, indem der Korpus thematisch tief statt breit waechst.
+
+### Falsch zugeschriebenes Audio aus dem Umlauf (inkl. KI-Stimmklon)
+**inhaltlich-religioes** · Schwere: kritisch · Wahrscheinlichkeit: hoch
+
+*Szenario:* Ein Bruder laedt in gutem Glauben eine MP3 hoch, die seit Jahren in Telegram-Gruppen als Ibn Baz zirkuliert. Tatsaechlich spricht ein Schueler, oder es ist ein anderer Scheich mit aehnlicher Stimme auf einer verrauschten Kassette. Es landet mit scholar_id=ibn-baz in einer Datenbank, die Autoritaet beansprucht, wird transkribiert, uebersetzt, gechunkt, vorberechnet, gecacht - und von anderen Seiten uebernommen, weil ihr jetzt die bequemste Quelle seid. Variante 2026: jemand generiert gezielt ein stimmgeklontes Audio. Trainingsmaterial liegt oeffentlich in Hunderten Stunden vor, und eine Plattform mit Autoritaetsanspruch ist genau das Ziel, auf dem sich so ein Angriff lohnt. Der Schaden ist nicht zurueckholbar, weil er sich weiterverbreitet.
+
+*Frühwarnsignal:* Stichprobe: 30 kursierende Clips von einem Kenner gegen binbaz.org.sa / binothaimeen.net / alifta.gov.sa pruefen lassen. Liegt die Falschzuschreibungsrate im Rohmaterial ueber 10 Prozent, ist der Community-Upload-Weg als Primaerquelle tot.
+
+*Gegenmaßnahme:* Herkunftsklassen im Schema statt Vertrauen: provenance = offizielle_seite | sendungsmitschnitt_belegt | community_upload_unbelegt. Nur die ersten beiden Klassen duerfen vom KI-Tool zitiert werden; community_upload_unbelegt ist in der Bibliothek sichtbar, aber mit Warnhinweis und ohne Zitierrecht. source_url auf eine offizielle Seite ist Pflichtfeld fuer die Zitierklasse. Zusaetzlich: Transkript-Abgleich gegen die vorhandenen Textkorpora der offiziellen Seiten als automatischer Zuschreibungsbeweis - wo der Text dort gefunden wird, ist die Zuschreibung bestaetigt; wo nicht, bleibt sie unbestaetigt. Das ist der einzige skalierbare Zuschreibungstest, den ihr habt.
+
+### Uebersetzung kippt die Rechtsnuance (karahah vs tahrim, Bedingung faellt weg)
+**inhaltlich-religioes** · Schwere: kritisch · Wahrscheinlichkeit: fast sicher
+
+*Szenario:* Der Gelehrte sagt la yanbaghi (es ziemt sich nicht) oder al-ahwat tarkuhu (das Vorsichtigere ist, es zu lassen) oder makruh. Der Freiwillige - oder DeepL - schreibt: es ist verboten. Umgekehrt wird la yajuz zu man sollte es besser lassen. Oder der haeufigste Fall: fihi tafsil (darin ist zu differenzieren) wird weggelassen, weil der Uebersetzer den folgenden Nebensatz fuer eine Wiederholung haelt, und eine bedingte Erlaubnis wird zur unbedingten. Diese Uebersetzung geht in den DE-Index, wird vom Retrieval getroffen, vom Reranker als bester Treffer gewaehlt und vom LLM zitiert. Der arabische Originalwortlaut steht zwar daneben - aber der deutsche Nutzer, der die Plattform gerade deshalb benutzt, liest ihn nicht.
+
+*Frühwarnsignal:* Gezielter Test mit 20 Saetzen, die genau diese Muster enthalten, durch MT und durch zwei Freiwillige. Kippt die Nuance in mehr als 20 Prozent der Faelle, ist reines Post-Editing nicht ausreichend.
+
+*Gegenmaßnahme:* Kontrolliertes Urteilsvokabular statt freier Uebersetzung: der Uebersetzer uebersetzt den Text, aber das URTEIL wird separat als Enum erfasst (wajib | mustahabb | mubah | makruh | haram | fihi_tafsil | kein_urteil) und in der UI als eigenes Label angezeigt, nicht aus der Prosa gelesen. Glossar mit harten Entsprechungen (300-500 Paare), das im Review-UI als Autocomplete erscheint und bei Abweichung warnt. Zweite Schranke: ein Haiku-Batch-Screening, das AR-Original und DE-Uebersetzung im selben Call vergleicht und ausschliesslich auf Urteilsstaerke und weggefallene Konditionale prueft - das kostet pro Video Bruchteile eines Cents und faengt genau diese Fehlerklasse.
+
+### Instrumentalisierung im innerinnerlichen Streit (Jarh wa Tadil, Gelehrter gegen Gelehrten)
+**inhaltlich-religioes** · Schwere: kritisch · Wahrscheinlichkeit: fast sicher
+
+*Szenario:* Jemand fragt: Was hat Scheich X ueber Scheich Y gesagt? oder: Belege, dass Z ein Mubtadi ist. Bei einem salafitischen Korpus ist das kein Randfall - es gibt eine ganze Gattung von Audios dazu, und sie gehoeren zu den meistgesuchten. Euer Tool liefert auf Knopfdruck zusammengestellte, uebersetzte Munition, sortiert nach Relevanz, mit Deep-Link. Damit wird die Plattform binnen Wochen von einer Fraktion vereinnahmt und von den anderen angegriffen. Zulieferer spalten sich, die Neutralitaetsbehauptung ist weg, und Material wird gezielt eingereicht, um Positionen zu kanonisieren. Zusaetzlich: wenn Y eine lebende, in Deutschland ansaessige Person ist, verbreitet ihr eine uebersetzte ehrenruehrige Tatsachenbehauptung als eigenen Inhalt.
+
+*Frühwarnsignal:* Die ersten 200 echten Queries enthalten bereits Fragen dieses Typs. Sie treten sofort auf, nicht spaet - also vor dem Launch im Query-Log des geschlossenen Betatests sichtbar.
+
+*Gegenmaßnahme:* Scope-Entscheidung VOR dem Bau, nicht als Moderation danach: Personenbewertungen (Jarh wa Tadil) kommen gar nicht erst in den Korpus - eigenes content_class-Feld, das beim Ingest gesetzt wird, und diese Klasse ist aus dem Index ausgeschlossen. Dazu ein Intent-Classifier auf der Query (billiges Modell, 0,0002 USD), der Fragen nach Personenurteilen erkennt und mit einem festen Text abweist, statt zu retrieven. Das kostet euch einen Teil der Zielgruppe und rettet das Projekt - umgekehrt gilt es nicht.
+
+### Lebensentscheidende Einzelfallfragen (Talaq, Erbe, Gelubde, Takfir) werden generisch beantwortet
+**inhaltlich-religioes** · Schwere: kritisch · Wahrscheinlichkeit: fast sicher
+
+*Szenario:* Nutzer tippt: ich habe dreimal Talaq gesagt, was gilt jetzt? Das ist einer der haeufigsten Gruende, warum Menschen Fatwa-Seiten ueberhaupt aufsuchen. Euer System retrieved Fatawa zum Dreifach-Talaq, findet unterschiedliche Positionen, gibt sie kurz wieder - und der Nutzer handelt. Die Fatwa haengt aber an Formulierung, Zustand der Frau, Absicht und Zahl der vorherigen Male; ohne Rueckfragen ist jede Antwort falsch. Dieselbe Struktur gilt fuer Erbteilung, Gelubde, Riba-Vertraege und - am gefaehrlichsten - Takfir-Fragen (ist mein Vater ein Kafir geworden). Das ist auch die Fragengattung, die ein Journalist oder eine Behoerde als Erstes testet.
+
+*Frühwarnsignal:* Query-Log: Fragen in der Ich-Form mit Schilderung eines Sachverhalts statt einer allgemeinen Frage. Anteil in den ersten Wochen messen - er wird hoeher sein als erwartet.
+
+*Gegenmaßnahme:* Themen-Sperrliste mit Hard-Routing statt Synthese: Talaq, Erbrecht, Gelubde/Qasam, Takfir, Khul, medizinische Entscheidungen. Bei diesen Themen gibt das System NIE eine zusammengefasste Antwort, sondern zeigt nur Fundstellen plus einen festen Satz: Dies ist ein Einzelfall, der eine Ruecksprache mit einem Gelehrten oder einem kundigen Imam erfordert. Erkennung ueber den Intent-Classifier plus Ich-Form-Heuristik. Das ist technisch trivial und die wichtigste einzelne Sicherheitsmassnahme des gesamten Produkts.
+
+### Beweis der Abwesenheit: hat Scheich X jemals gesagt, dass ...
+**Retrieval-Versagen** · Schwere: hoch · Wahrscheinlichkeit: fast sicher
+
+*Szenario:* Frage: Hat Ibn Baz je gesagt, dass Demonstrationen erlaubt sind? Euer System findet nichts, antwortet korrekt: dazu liegt hier nichts vor. Der Nutzer liest: er hat es nie gesagt - macht einen Screenshot und postet ihn als Beweis. Euer Korpus deckt aber vielleicht 2 Prozent des Gesamtwerks ab. Das System hat strukturell keine Moeglichkeit, Nichtexistenz zu belegen, aber die UI suggeriert Vollstaendigkeit, weil sie wie ein Archiv aussieht. Derselbe Mechanismus bei Vergleichsfragen: 8 Chunks von A, 0 von B, und die Antwort lautet sinngemaess, B habe sich nicht geaeussert.
+
+*Frühwarnsignal:* Im adversarialen Fragenset: jede Frage der Form hat X jemals / gibt es eine Fatwa von X zu / was ist der Unterschied zwischen X und Y. Pruefen, ob die Antwort eine Abwesenheitsaussage enthaelt.
+
+*Gegenmaßnahme:* Abwesenheit ist nie eine Aussage ueber den Gelehrten, sondern ueber den Korpus - und das muss woertlich so formuliert sein: In diesem Archiv liegen zu dieser Frage keine Aufnahmen von Scheich X vor. Das Archiv enthaelt derzeit N Aufnahmen von ihm und ist nicht vollstaendig. Dazu auf jeder Gelehrtenseite ein sichtbarer Abdeckungsindikator (N Aufnahmen, M Stunden, Themenbereiche). Fragen der Form hat X je gesagt vom Intent-Classifier abfangen und gar nicht erst in die Synthese lassen. Vergleichsfragen: pro genanntem Gelehrten getrennt retrieven und die Trefferzahl pro Gelehrtem explizit ausweisen.
+
+### Negation und Minimalpaare brechen Retrieval UND Cache
+**Retrieval-Versagen** · Schwere: kritisch · Wahrscheinlichkeit: hoch
+
+*Szenario:* Ist Bildbearbeitung erlaubt? und Ist Bildbearbeitung verboten? liegen im Embedding-Raum sehr nah beieinander - Dense-Modelle sind bei Verneinung notorisch schwach. Noch schaerfer bei Minimalpaaren, die den ganzen Fall drehen: Musafir vs. Muqim, Haid vs. Tahir, Gold als Gebrauchsschmuck vs. als Wertanlage, mit Niyya vs. ohne. Zwei Fragen mit 0,97 Cosine-Aehnlichkeit haben entgegengesetzte Antworten. Der semantische Cache liefert dann die gespeicherte Antwort der falschen Frage aus - und zwar monatelang, weil nichts sie invalidiert. Das ist eine gecachte falsche Fatwa mit korrekten Zitaten.
+
+*Frühwarnsignal:* Baut 30 Minimalpaare (eine Zeile Unterschied, entgegengesetzte Antwort) und fahrt sie gegen den Cache. Jeder Treffer, bei dem Paar A den Cache-Eintrag von Paar B zieht, ist ein Produktionsfehler.
+
+*Gegenmaßnahme:* Cache-Hit nur bei Cosine >= 0,97 UND lexikalischem Gate: die extrahierten Inhaltsbegriffe beider Fragen muessen Jaccard >= 0,8 erreichen, und eine kuratierte Liste von Diskriminator-Tokens (Reisender, ansaessig, Menstruation, Schmuck, Anlage, Absicht, nicht, kein, ohne) muss identisch belegt sein, sonst Cache-Miss. Cache-Key traegt immer (lang, model_id, corpus_version). Woechentlich 50 Cache-Hits stichprobenhaft pruefen lassen - ein falscher Cache-Hit ist hier keine schlechte Suche, sondern eine falsch zugeschriebene Fatwa.
+
+### Duenne Abdeckung mit knapp ueberschwelligen Treffern - gefaehrlicher als null Treffer
+**Retrieval-Versagen** · Schwere: hoch · Wahrscheinlichkeit: fast sicher
+
+*Szenario:* Nicht der leere Treffer ist das Problem (da greift Abstain), sondern die Zone darueber: zwei bis drei schwache Chunks, die knapp ueber der Schwelle liegen. Beispiel: Frage zu Kryptowaehrungen. Im Korpus gibt es keine Fatwa dazu, aber eine Randbemerkung zu Gharar in einem Vortrag ueber Handel aus 1994. Der Reranker hebt sie, weil sie das Beste ist, was da ist. Die Antwort wirkt durch Zitat, Name und Timestamp autoritativer als jede Google-Suche - und ist eine Extrapolation, die der Gelehrte nie gemacht hat. Das ist die haeufigste Form des realen Schadens und faellt keinem Verifier auf, weil der Satz durch den Chunk gedeckt ist.
+
+*Frühwarnsignal:* Verteilung der Reranker-Top-1-Scores ueber echte Queries plotten. Der mittlere Bereich ist der gefaehrliche. Wenn dort mehr als 20 Prozent der Queries landen, ist die Schwelle falsch kalibriert.
+
+*Gegenmaßnahme:* Zwei Schwellen statt einer: ueber der oberen Schwelle Synthese; zwischen den Schwellen NUR Fundstellen ohne Synthese, mit dem Hinweis, dass die gefundenen Stellen das Thema nur beruehren; unter der unteren Schwelle gar nichts. Zusaetzlich eine Themenabdeckungs-Pruefung: wenn das Thema der Frage nicht zu den kuratierten Thema-Tags gehoert, zu denen der Korpus tatsaechlich Material hat, ist das ein harter Abstain - unabhaengig vom Score. Die Themenliste pflegt ihr ohnehin fuer die Bibliothek.
+
+### Rollenverwechslung Frager/Gelehrter - die Frage wird als Fatwa zitiert
+**technisch** · Schwere: kritisch · Wahrscheinlichkeit: mittel bis hoch
+
+*Szenario:* Die Diarization markiert Sprecher A und B, die Heuristik laengster Redeanteil gleich Gelehrter versagt genau dort, wo der Fragesteller lang und detailliert vortraegt - also in klassischen Fatwa-Sendungen. Der Fragetext enthaelt typischerweise eine falsche Praemisse: Scheich, manche Leute sagen, dass X erlaubt sei und berufen sich auf ... Wird dieses Segment als scholar-Segment indexiert, zitiert euer System die Gegenposition als Position des Gelehrten - also exakt die Umkehrung. Mit korrektem Timestamp, korrektem Namen und korrektem Deep-Link.
+
+*Frühwarnsignal:* Stichprobe von 50 Chunks mit speaker_role=scholar: beginnt einer mit typischen Fragerformeln (yaqul as-sail, fadilat ash-shaikh, ahsana Allahu ilaik, suali huwa), ist die Rolle falsch. Das laesst sich vollautomatisch als Dauer-Check fahren.
+
+*Gegenmaßnahme:* Rolle ist Pflichtfeld mit Review-Bestaetigung, nicht Heuristik-Ergebnis. Nur speaker_role=scholar UND role_confirmed=true darf zitiert werden. Formel-Detektor als automatischer Vorfilter in beide Richtungen (Fragerformeln im scholar-Segment und Antwortformeln im sail-Segment). Fragersegmente separat als Fragetext indexieren - die sind fuers Retrieval sogar wertvoll, weil Nutzerfragen ihnen aehneln -, aber mit eigenem Typ, der nie als Antwort ausgegeben wird.
+
+### Timestamp-Drift - das stillste Versagen der ganzen Architektur
+**technisch** · Schwere: kritisch · Wahrscheinlichkeit: hoch
+
+*Szenario:* Drei unabhaengige Ursachen: (a) ffmpeg schneidet mit -ss vor -i, die ausgelieferte Datei ist um 0,3 bis 2 Sekunden versetzt; (b) ein Bruder hat beim Abtippen Fuellwoerter weggelassen und eine Wiederholung zusammengezogen, das Forced Alignment driftet ab dort um Sekunden bis Minuten, ohne Fehler zu melden; (c) ctc-forced-aligner bekommt arabische Schrift ohne uroman-Romanisierung und liefert durchgehend Nullzeiten. In allen drei Faellen funktioniert alles weiter: die Seite laedt, das Zitat steht da, der Link ist klickbar. Nur landet der Nutzer mitten in der Antwort auf eine ANDERE Frage. Niemand merkt es, weil niemand alle Links klickt, und wer klickt, denkt, er habe sich verhoert. Das zerstoert genau das Vertrauensmerkmal, auf dem die gesamte Produktidee ruht.
+
+*Frühwarnsignal:* Ein Cron-Job ab Tag 1: 50 zufaellige Chunks ziehen, das Audio ab start_ms fuer 10 Sekunden erneut durch ASR schicken, fuzzy gegen die ersten Woerter des Chunks matchen. Unter 70 Prozent Uebereinstimmung ist Alarm. Zusaetzlich harte Ablehnung jedes Segments mit t_start==t_end==0 oder nicht monoton wachsenden Zeiten.
+
+*Gegenmaßnahme:* align_confidence pro Segment persistieren; unterhalb der Schwelle wird der Deep-Link DEAKTIVIERT statt falsch zu springen (lieber kein Sprung als ein falscher). Timestamps immer gegen die AUSGELIEFERTE Datei alignen, nie gegen das Original, und das in einem automatisierten Test absichern. Der ASR-Lauf ist Autoritaet fuer das Timing, der menschliche Text fuer den Wortlaut - verbunden per Text-zu-Text-Alignment, nicht per Forced Alignment auf Audio.
+
+### review_state faellt aus dem Retrieval-Pfad - maschinelle Rohuebersetzung wird als Beleg zitiert
+**technisch** · Schwere: kritisch · Wahrscheinlichkeit: mittel
+
+*Szenario:* Beim Refactoring der Hybrid-Query wandert der Filter state='approved' aus der WHERE-Klausel - zum Beispiel weil jemand den exakten Scan-Pfad fuer hochselektive Filter ergaenzt und die Bedingung dort vergisst. Ab diesem Deploy zitiert das KI-Tool ungeprueften Maschinenoutput als Wortlaut des Gelehrten. Nichts bricht, nichts loggt, die Antworten werden sogar besser (groesserer Pool). Es faellt erst auf, wenn jemand von aussen eine falsche Uebersetzung oeffentlich macht.
+
+*Frühwarnsignal:* Canary-Row: ein absichtlich im Korpus platzierter Dummy-Chunk mit state='pending' und einem einzigartigen Marker-String. Ein Cron stellt stuendlich die Frage, die ihn triggert, und alarmiert, wenn der Marker in Retrieval oder Antwort auftaucht.
+
+*Gegenmaßnahme:* Canary-Row plus Datenbank-Ebene statt Anwendungsebene: eine View chunks_citable, die den Filter enthaelt, und ein Datenbank-Benutzer fuer die Anwendung, der auf die Basistabelle gar kein SELECT hat. Dann ist der Fehler nicht mehr vergessbar. Zusaetzlich: jeder ausgelieferte Chunk traegt seinen review_state im Antwort-Payload, und das Frontend wirft einen sichtbaren Fehler, wenn er nicht approved ist.
+
+### Uebersetzungs- und Korrekturaufwand uebersteigt das Freiwilligenteam um ein bis zwei Groessenordnungen
+**organisatorisch** · Schwere: kritisch · Wahrscheinlichkeit: fast sicher
+
+*Szenario:* Rechnung fuer 1.000 Stunden Audio (entspricht etwa 6.000-7.500 Videos a 8-10 Min). Arabische Wortzahl: 1.000 h x 60 x 130 Woerter/Min = ca. 7,8 Mio Woerter. Transkriptkorrektur bei realen 20-40 Prozent WER auf altem Kassettenmaterial: 90-180 Min pro Audiostunde, also 1.500-3.000 Personenstunden. Uebersetzung: ein Fachuebersetzer schafft 2.000-2.500 Woerter pro Achtstundentag, Post-Editing von MT etwa 6.000-8.000 - also pro Zielsprache 975 bis 3.900 Personentage. Mit MT-Post-Editing und zwei Zielsprachen: ca. 15.000-20.000 Personenstunden, plus Review ca. 3.000, plus Korrektur. Gesamt realistisch 20.000-25.000 Personenstunden fuer 1.000 Audiostunden. Bei 20 aktiven Freiwilligen a 4 Stunden pro Woche sind das 250-310 Wochen, also 5 bis 6 Jahre - fuer ein Fuenftel des Zielkorpus. Fuer die 8.300 Audiostunden der Zielgroesse: 160.000-200.000 Personenstunden. Das ist nicht knapp, das ist unmoeglich.
+
+*Frühwarnsignal:* Woche 1 messen statt schaetzen: drei Freiwillige, je 30 Minuten Audio, voller Durchlauf mit Stoppuhr. Die resultierende Zahl Stunden-pro-Audiostunde mit der verfuegbaren Gesamtkapazitaet multiplizieren. Zweites Signal: Durchsatz pro Woche faellt in Woche 4-6 unter die Haelfte von Woche 1.
+
+*Gegenmaßnahme:* Die Korpus-Zielgroesse ist die Stellschraube, nicht die Technik. Konkret: (1) Zielkorpus auf 300-800 sorgfaeltig kuratierte Fatawa zu den 50 meistgefragten Masail begrenzen - tief statt breit. Ein vollstaendiges, korrektes Archiv zu Taharah und Salah ist wertvoller und glaubwuerdiger als 50.000 halbgeprueft. (2) Review nach Retrieval-Treffern priorisieren: nur was tatsaechlich in Top-k auftaucht, wird geprueft. (3) Dort, wo offizielle Textfatawa existieren (binbaz.org.sa, alifta), Text-zu-Audio-Alignment statt Transkription - das eliminiert den groessten Posten. (4) Architektur muss ungeprueftes Material korrekt behandeln koennen: sichtbar gekennzeichnet, nie woertlich zitiert, nie vom KI-Tool verwendet.
+
+### Freiwilligenabbruch nach drei Monaten - das Projekt landet im Zwischenzustand
+**organisatorisch** · Schwere: kritisch · Wahrscheinlichkeit: hoch
+
+*Szenario:* Der typische Verlauf: Begeisterung am Anfang, Ramadan-Peak, dann Einbruch. Nach vier Monaten sind 3.000 Videos ingestiert, 400 geprueft, 2.600 liegen mit maschineller Uebersetzung im System. Jetzt gibt es nur schlechte Optionen: ungeprueftes anzeigen (Zuschreibungsrisiko) oder nicht anzeigen (die Plattform wirkt leer trotz monatelanger Arbeit, und die verbliebenen Freiwilligen sehen ihren Beitrag nicht). Das Projekt ist strukturell zu gross zum Pruefen und zu klein zum Nuetzen - und genau in diesem Zustand bleibt es haengen.
+
+*Frühwarnsignal:* Woechentlicher aktiver Beitragender-Count. Faellt er zwei Wochen in Folge, ist die Kurve begonnen. Zweites Signal: das Verhaeltnis ingestiert zu geprueft steigt ueber 3:1.
+
+*Gegenmaßnahme:* Ingest-Drossel: pro Woche duerfen nur so viele Videos in den Ingest, wie in derselben Woche geprueft wurden (Verhaeltnis maximal 2:1 als harte Regel im Admin-UI). Das fuehlt sich falsch an und rettet das Projekt. Dazu Sichtbarkeit als Motivation: oeffentliche Statusseite, auf der jeder Beitrag von eingegangen bis veroeffentlicht wandert, mit Namensnennung (wer sie will). Kleine, abgeschlossene Pakete (ein Kapitel, zehn Fatawa) statt eines unendlichen Backlogs - ein abgeschlossenes Thema ist ein Erfolgserlebnis, eine Warteschlange ist keines.
+
+### Qualitaetsstreuung zwischen Zulieferern - der schwaechste produziert am meisten
+**organisatorisch** · Schwere: hoch · Wahrscheinlichkeit: fast sicher
+
+*Szenario:* Bruder A ist Muttersprachler mit Ilm, braucht 3 Stunden pro Audiostunde und liefert praezise. Bruder B hat zwei Jahre Arabisch, kippt DeepL-Output in das Formular und liefert in 20 Minuten. Beide erscheinen im System als Uebersetzung mit demselben Status. Da B zehnmal schneller ist, besteht der Korpus nach einem halben Jahr ueberwiegend aus B-Material. Die Plattform hat damit statistisch mehr schlechte als gute Uebersetzungen - und zwar ohne dass irgendwo ein Fehler protokolliert waere.
+
+*Frühwarnsignal:* Durchsatz pro Beitragendem in Woertern pro Stunde. Wer deutlich ueber 3.000 Woerter pro Stunde liegt, uebersetzt nicht, sondern pastet. Zweites Signal: Trefferrate des automatischen Nuancen-Screenings pro submitter_id.
+
+*Gegenmaßnahme:* translator_id und translation_source (human | mt_postedit | mt_raw) als Pflichtfelder pro Segment, und beides wird im Retrieval als Rankingsignal und in der UI als Label verwendet. Pro Beitragendem eine laufende Qualitaetsmetrik aus dem automatischen AR/DE-Screening plus Stichproben eines zweiten Pruefers. Neue Beitragende starten in einem Probenstatus: ihre ersten zehn Beitraege gehen zwingend durch Vier-Augen. Nichts davon ist Misstrauen, sondern die technische Form der Zuschreibungstreue.
+
+### Boeswilliger oder ideologisch motivierter Zulieferer
+**organisatorisch** · Schwere: kritisch · Wahrscheinlichkeit: mittel
+
+*Szenario:* Drei realistische Varianten. (a) Jemand streicht in der Uebersetzung eine Bedingung (ohne Erlaubnis des Herrschers, sofern keine Fitna entsteht) - der arabische Text bleibt korrekt, nur die deutsche Fassung, die 95 Prozent der Nutzer lesen, ist jetzt eine andere Fatwa. (b) Jemand laedt echtes Audio mit manipuliertem Transkript hoch; da ihr nicht jedes Wort gegen das Audio prueft, faellt eine eingefuegte Nebenbedingung nicht auf. (c) Jemand reicht gezielt nur Material ein, das eine Fraktionsposition stuetzt, und formt so ueber Monate den Korpus - ohne eine einzige Faelschung, nur durch Auswahl. Variante (c) ist am schwersten zu entdecken und am wahrscheinlichsten.
+
+*Frühwarnsignal:* (a) und (b): automatischer AR/DE-Konsistenz-Check meldet bei einem submitter gehaeuft weggefallene Konditionale. (c): Verteilung der Beitraege nach Gelehrtem und Thema pro submitter - eine stark schiefe Verteilung bei hohem Volumen ist das Signal.
+
+*Gegenmaßnahme:* Vier-Augen-Prinzip fuer alles, was das KI-Tool zitieren darf, mit zwei verschiedenen submitter_ids - ohne Ausnahme und ohne Selbstfreigabe. Vollstaendige Versionierung (wer hat welchen Satz wann geaendert) als unloeschbares Audit-Log, nicht als DB-Update. Korpus-Balance regelmaessig als Diagramm anschauen: Beitraege pro Gelehrtem, pro Thema, pro Zulieferer. Und ein Pflichtschritt beim Review: der Pruefer HOERT die Stelle, er liest sie nicht nur - gegen Variante (b) hilft nichts anderes.
+
+### Governance-Vakuum: niemand ist religioes verantwortlich, und die Aufnahmeliste ist selbst eine Positionierung
+**organisatorisch** · Schwere: kritisch · Wahrscheinlichkeit: fast sicher
+
+*Szenario:* Zwei Haelften desselben Problems. Erstens: solange kein namentlich benannter Bruder mit anerkanntem Ilm die freigegebenen und vorberechneten Antworten unterschreibt, ist Zuschreibungstreue nur eine Prompt-Zeile. Gibt es ihn, ist er sofort Flaschenhals fuer alles und zugleich das Haftungssubjekt - und er wird entweder nicht mitkommen oder durchwinken. Zweitens: jede Entscheidung, welcher Gelehrte in den Korpus kommt, ist eine manhaj-politische Positionierung in einem laufenden Spaltungskonflikt. Die Aufnahme oder Nichtaufnahme eines Namens spaltet euer eigenes Team und entscheidet, von wem ihr Material und von wem ihr Gegenwind bekommt - noch bevor eine Zeile Code existiert.
+
+*Frühwarnsignal:* Die erste Diskussion im Team darueber, ob ein bestimmter Name aufgenommen wird, dauert laenger als eine Stunde. Zweites Signal: niemand will die Freigabeentscheidung namentlich verantworten.
+
+*Gegenmaßnahme:* Beides vor Projektbeginn schriftlich klaeren: (1) eine namentliche Liste der aufgenommenen Gelehrten mit einem kurzen, oeffentlich stehenden Kriterium - und die Liste aendert sich nur durch eine benannte Instanz, nicht durch Einzelentscheidung. (2) Ein benannter Muraji mit begrenztem, realistischem Pensum (z.B. 50 vorberechnete Antworten pro Monat) - und der Rest des Systems muss ohne ihn funktionieren, also ohne Synthese, nur als Archiv. (3) Formale Anfrage um Erlaubnis und Rueckmeldung bei zwei bis drei Stiftungen/Redaktionen. Deren Antwort - oder ihr Schweigen - ist das wichtigste Signal des gesamten Projekts und kostet eine E-Mail.
+
+### Bus-Faktor 1: ein Entwickler fuer sechs Spezialgebiete
+**organisatorisch** · Schwere: kritisch · Wahrscheinlichkeit: hoch
+
+*Szenario:* Eine Person soll beherrschen: arabische ASR und Diarization, Forced Alignment, RAG mit cross-lingualem Retrieval, Next.js mit RTL und 150.000 Seiten, Linux-Ops mit Postgres-Backups, deutsches Medien- und Datenschutzrecht, plus Community-Management von Freiwilligen. Jedes Einzelne ist ein eigenes Feld. Realistisch passiert eines von zweien: entweder das Projekt kommt nach drei Monaten im Ingest-Teil nicht voran, waehrend das Frontend fertig ist, oder der Entwickler faellt aus (Arbeit, Familie, Erschoepfung) und niemand kann das System auch nur am Laufen halten - Postgres-Upgrade, abgelaufenes Zertifikat, volle Festplatte reichen schon.
+
+*Frühwarnsignal:* Die erste Woche, in der ueberhaupt kein Commit faellt. Zweites Signal: ein Problem bleibt mehr als zwei Wochen offen, weil es in ein Gebiet faellt, das der Entwickler nicht mag.
+
+*Gegenmaßnahme:* Betriebsaufwand radikal senken, bevor Features gebaut werden: Managed Postgres statt selbst betriebenem (die 80-120 EUR Differenz pro Jahr sind irrelevant gegen eine verlorene Nacht), ASR per API statt self-hosted, Reranker per API, kein Kubernetes, kein Temporal, kein selbst gehostetes Sentry/Langfuse. Alles in Docker Compose plus einem dokumentierten Restore-Lauf, der einmal tatsaechlich durchgefuehrt und protokolliert wurde. Und: ein zweiter Mensch bekommt ab Tag 1 Zugaenge und fuehrt den Restore einmal selbst aus, auch wenn er sonst nichts beitraegt.
+
+### Deplattformierung und politischer Kontext in Deutschland
+**rechtlich** · Schwere: kritisch · Wahrscheinlichkeit: mittel
+
+*Szenario:* Eine deutsche Plattform, die systematisch salafitisches Material uebersetzt und per KI auffindbar macht, ist erklaerungsbeduerftig - auch wenn die genannten Gelehrten ausdruecklich quietistisch sind. Es genuegt ein einzelner isoliert ausgegebener Chunk zu Wala wa Bara oder Takfir in einem Zeitungsartikel oder einem Verfassungsschutzbericht. Danach folgt die uebliche Kette: Hoster kuendigt, Zahlungsdienstleister sperrt die Spendenfunktion, Domain-Registrar wird angeschrieben, Vereinskonto wird gekuendigt. Das ist in Deutschland kein hypothetisches, sondern ein dokumentiertes Muster. Die gesamte Arbeit ist an einem Wochenende nicht mehr erreichbar.
+
+*Frühwarnsignal:* Erste Presseanfrage, erste Beschwerde ueber den Hoster, erste ungewoehnliche Crawler-Aktivitaet aus einem Behoerden-Netzbereich. Spaetestens: ein Screenshot einer eurer Antworten taucht in einem Kontext auf, den ihr nicht gesetzt habt.
+
+*Gegenmaßnahme:* Export-First-Betrieb von Tag 1: Inhalte als JSON/JSONL in einem Git-Repo (nicht nur in der DB), Medien in S3-kompatiblem Speicher, naechtlicher pg_dump zu einem ZWEITEN Anbieter, Deployment als Compose/Terraform statt Managed-Konsole, Domain bei einem zweiten Registrar-Account, Spenden nicht ueber einen einzigen Zahlungsdienstleister. Ziel: ein Anbieterwechsel ist ein Wochenende, keine Neuentwicklung. Inhaltlich: Themen, die ausschliesslich politisch gelesen werden, gehoeren nicht in den Korpus - die Scope-Entscheidung aus dem Jarh-wa-Tadil-Punkt deckt den groessten Teil davon ab.
+
+### Aeusserungsrecht: uebersetzte Werturteile ueber lebende Personen
+**rechtlich** · Schwere: hoch · Wahrscheinlichkeit: mittel bis hoch
+
+*Szenario:* Im Korpus liegt eine Aufnahme, in der Gelehrter A ueber eine namentlich genannte, lebende Person sagt, sie sei ein Luegner oder ein Mubtadi. Ihr uebersetzt das ins Deutsche, stellt es bereit und macht es per KI auffindbar. Juristisch ist das kein fremder Inhalt mehr: ihr habt uebersetzt, kuratiert und thematisch erschlossen - das Haftungsprivileg der §§ 7-10 DDG greift nicht. Ist die betroffene Person in Deutschland ansaessig, folgt eine einstweilige Verfuegung binnen Tagen, Kosten im vierstelligen Bereich, und zwar ohne vorherige Abmahnung, wenn der Anwalt es so waehlt. Das ist das wahrscheinlichste juristische Ereignis des gesamten Projekts - wahrscheinlicher als jede Urheberrechtsfrage.
+
+*Frühwarnsignal:* Ein automatischer NER-Lauf ueber die Transkripte findet Personennamen, die nicht in eurer Gelehrtenliste und nicht in der Ueberliefererliste stehen. Jeder solche Treffer in einem bewertenden Satzkontext ist ein Kandidat.
+
+*Gegenmaßnahme:* NER-Pflichtlauf vor Veroeffentlichung jedes Segments: Personennamen ausserhalb der kuratierten Listen markieren den Chunk als nicht_veroeffentlichbar, bis ein Mensch entschieden hat. Fuer lebende Personen gilt pauschal: keine Uebersetzung, keine Indexierung, kein Zitat. Trager ist ein e.V. oder eine gGmbH mit ladungsfaehiger Anschrift - niemals die Privatadresse eines Bruders im Impressum (§ 5 DDG, § 18 Abs. 2 MStV). 90 Minuten bei einem Anwalt fuer IT- und Aeusserungsrecht vor dem Launch kosten 300-500 EUR und sind die billigste Versicherung des Projekts.
+
+### Art. 9 DSGVO: Nutzerfragen sind Daten besonderer Kategorie - und ein Zielobjekt
+**rechtlich** · Schwere: hoch · Wahrscheinlichkeit: hoch
+
+*Szenario:* Die Frage ist Musik in meinem Beruf haram? offenbart die religioese Ueberzeugung des Fragestellers - besondere Kategorie nach Art. 9 DSGVO. Praktisch traegt nur die ausdrueckliche Einwilligung (lit. a). Ihr loggt aber Fragen zusammen mit IP und Zeitstempel, weil ihr den Cache und das Eval braucht. Damit habt ihr ohne Rechtsgrundlage einen Datenbestand aufgebaut, der (a) bussgeldbewehrt ist und (b) im Fall einer Ermittlung gegen Dritte beschlagnahmefaehig ist. Der Schaden trifft dann nicht euch, sondern eure Nutzer - und das ist bei einer Dawah-Plattform der Reputationsschaden, von dem man sich nicht erholt.
+
+*Frühwarnsignal:* Ein Blick in die eigene Tabelle: steht Fragetext in derselben Zeile wie IP, Session-ID oder User-Agent, ist der Fehler bereits passiert.
+
+*Gegenmaßnahme:* Zielkonflikt bewusst aufloesen, nicht ignorieren: Fragetext wird per Default NICHT persistiert. Fuer Cache und Eval genuegt ein Datensatz OHNE jeden Identifikator - Frage, Antwort, Chunk-IDs, Scores, Zeitstempel auf Tagesgenauigkeit, in einer physisch getrennten Tabelle, auf die kein Join zu Request-Logs moeglich ist. Opt-in-Checkbox fuer alles darueber hinaus. Kurze TTL auf Rohlogs (24-48 h). Chat ohne Account moeglich. Sichtbarer KI-Hinweis im Chatfenster ab der ersten Interaktion (Art. 50 EU AI Act, seit 02.08.2026 - ein Satz in den AGB genuegt ausdruecklich nicht).
+
+### LLM-Kostenexplosion ueber Nacht
+**finanziell** · Schwere: kritisch · Wahrscheinlichkeit: hoch
+
+*Szenario:* Vier Wege, drei davon realistisch. (a) Ein Akteur, der die Plattform ablehnt, schickt 500.000 Requests ueber Residential-Proxies; IP-Rate-Limiting ist damit wirkungslos. Bei ca. 0,05 USD pro Antwort sind das 25.000 USD in einer Nacht. (b) Jemand exfiltriert den gesamten Korpus durch den Chatbot - jede Frage ist ein kostenloser RAG-Dump, und ihr zahlt dafuer. (c) Viral im Ramadan: ein Post in einer grossen Telegram-Gruppe, 50.000 echte Nutzer in 24 Stunden, voellig legitime Nutzung, Rechnung trotzdem vierstellig. (d) Prompt-Injection ueber den Korpus selbst: ein Zulieferer schreibt in ein Transkript eine Anweisung, eine sehr lange Antwort zu erzeugen - das sprengt Output-Token und umgeht in einem Zug die Zitierpflicht. Dazu ein stiller Multiplikator: arabische Token kosten deutlich mehr als englische Schaetzungen, eure Kalkulation pro Antwort ist vermutlich um Faktor 1,5-3 zu niedrig.
+
+*Frühwarnsignal:* Kostenalarm beim Anbieter ist zu spaet - der feuert, wenn das Geld weg ist. Stattdessen: eigener Zaehler in der Datenbank, der pro Stunde die kumulierten geschaetzten USD fortschreibt, plus Alarm bei einer Verzehnfachung der Queries pro Stunde gegen den Vortag.
+
+*Gegenmaßnahme:* Mehrschichtig und VOR dem Launch getestet: (1) harter Tages-Hardcap in USD im Code, der den Synthese-Endpunkt abschaltet und nur noch die Fundstellenliste ausliefert - das Produkt bleibt nutzbar, nur ohne LLM. (2) Cloudflare Turnstile vor dem Chat-Endpunkt. (3) Vorberechnete Top-500-Antworten, die gar kein LLM anfassen. (4) max_tokens-Deckel. (5) Transkripte werden nie als Prompttext eingebettet, sondern als search_result-Blocks, und Zulieferer-Text wird vor dem Ingest auf Anweisungsmuster gescreent. (6) Vor dem Launch einen Lasttest mit 10.000 Requests gegen den eigenen Endpoint fahren und pruefen, ob der Cap wirklich greift. (7) Echte Tokenkosten einmal mit count_tokens auf 20 arabischen Transkripten messen, bevor irgendein Budget steht.
+
+### Eure eigene Planungsgrundlage ist in Teilen unverifiziert und in sich widerspruechlich
+**technisch** · Schwere: hoch · Wahrscheinlichkeit: hoch
+
+*Szenario:* Die Recherche, auf der alle Architektur- und Budgetentscheidungen stehen, markiert zahlreiche Preise und Benchmarks selbst als unverifiziert (Cohere, Jina, Gemini-Batch, Hetzner-Preise, Fly/Scaleway, Mux). Schwerwiegender: zwei Teilberichte empfehlen gegensaetzliche Kernarchitekturen - einer sagt, alle drei Sprachen muessen embedded werden (cross-lingualer Recall-Einbruch von 92 auf 56 Prozent), der andere sagt, nur Arabisch, weil das Original die Wahrheitsquelle ist. Beide Argumente sind plausibel. Ein kleines Team waehlt in so einer Lage die Variante, die es zuerst gelesen hat, baut sechs Wochen darauf - und ein Embedder- oder Index-Wechsel bedeutet Reindexierung des gesamten Korpus plus Verfall aller freigegebenen Cache-Antworten.
+
+*Frühwarnsignal:* Niemand im Team kann sagen, welche Zahl aus der Planung tatsaechlich an einer Anbieterseite geprueft wurde. Zweites Signal: eine Architekturentscheidung wird mit einer Benchmarkzahl begruendet, die niemand auf dem eigenen Material nachgemessen hat.
+
+*Gegenmaßnahme:* Ein eigenes Goldset von 100-150 echten Fragen auf DE/EN/AR mit handannotierten korrekten Fatwa-IDs, erstellt von zwei Bruedern in zwei Nachmittagen. Danach die strittige Frage mit 200 Videos in beiden Varianten messen - das kostet unter 20 USD und ersetzt jede Benchmarkdiskussion. Embeddings in einer EIGENEN Tabelle nach model_id partitioniert, mit einer active_embedding_model_id-Zeile, von Tag 1 - dann ist ein Modellwechsel eine Partition und ein Schalter, kein Projektabbruch. Jede Preiszahl, auf der mehr als 50 EUR pro Monat haengen, einmal selbst an der Anbieterseite pruefen, bevor sie ins Budget geht.
+
+### Die KI-Schicht ist genau der Teil, den die Zielgruppe ablehnt
+**inhaltlich-religioes** · Schwere: hoch · Wahrscheinlichkeit: mittel bis hoch
+
+*Szenario:* Dar al-Ifta Aegypten hat KI-gestuetzte Tafsir-Nutzung ausdruecklich untersagt; islamqa.info hat eine eigene Fatwa gegen das Einholen von Fatawa bei KI veroeffentlicht. Genau die konservative Zielgruppe, die eure Gelehrten folgt, ist die, die eine Maschine zwischen sich und das Wort des Gelehrten am wenigsten akzeptiert. Realistisches Ergebnis: ihr baut neun Monate, und die ersten Reaktionen aus dem Milieu lauten nicht das ist falsch zitiert, sondern man fragt keine Maschine. Dann ist der wertvollste Teil (ein durchsuchbares, zeitgenau verlinktes, uebersetztes Archiv) fertig - und der Chatbot ist das Feature, das verhindert, dass er benutzt wird.
+
+*Frühwarnsignal:* Fragt vor dem Bau zehn Personen aus der Zielgruppe, ob sie eine KI-Antwort zu einer Fiqh-Frage lesen wuerden. Die Antworten sind in einem Nachmittag da.
+
+*Gegenmaßnahme:* Reihenfolge umdrehen: zuerst das Archiv mit Suche und Deep-Links bauen und veroeffentlichen - das ist unstrittig nuetzlich, hat kein Zuschreibungsrisiko und braucht keinen Muraji. Das KI-Tool kommt danach, und zwar sprachlich und visuell als Suchhilfe positioniert, nicht als Antwortende Instanz: keine fliessende Antwort im Chatstil, sondern eine Liste der gefundenen Positionen mit Namen, Zitat und Video - die Zusammenfassung zweitrangig und eingeklappt. Niemals als Mufti positionieren. Das ist zugleich die Formulierung, mit der ihr bei den Stiftungen um Erlaubnis fragt - und die entscheidet, ob ihr sie bekommt.

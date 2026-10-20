@@ -1,0 +1,99 @@
+# Topic list. Two levels. Each entry gets one main topic (required) and any number of sub-topics.
+# IDs are permanent. Only the admin adds new sub-topics.
+# The form only offers the 8 main topics - sub-topics are set by the admin.
+
+aqida:
+  name_en: Creed
+  name_ar: العقيدة
+  sub:
+    tawhid:        { en: Tawhīd in general,              ar: التوحيد }
+    uluhiyya:      { en: Tawhīd al-ulūhiyya,             ar: توحيد الألوهية }
+    asma-sifat:    { en: Names and attributes,           ar: الأسماء والصفات }
+    iman:          { en: Īmān, its branches,             ar: الإيمان }
+    qadar:         { en: Divine decree,                  ar: القدر }
+    shirk:         { en: Shirk and its types,            ar: الشرك }
+    bida:          { en: Bidʿa,                          ar: البدعة }
+    wala-bara:     { en: Walāʾ and barāʾ,                ar: الولاء والبراء }
+    sahaba:        { en: The Companions,                 ar: الصحابة }
+    ghayb:         { en: The unseen, the hereafter,      ar: الغيبيات }
+    sihr:          { en: Magic, ruqya, amulets,          ar: السحر والرقية }
+
+manhaj:
+  name_en: Methodology
+  name_ar: المنهج
+  sub:
+    ittiba:        { en: Following and imitation,        ar: الاتباع }
+    salaf:         { en: Way of the salaf,               ar: منهج السلف }
+    hizbiyya:      { en: Partisanship, groups,           ar: الحزبية }
+    jarh-tadil:    { en: Criticism and appraisal,        ar: الجرح والتعديل }
+    fitan:         { en: Trials and turmoil,             ar: الفتن }
+    takfir:        { en: Takfīr,                         ar: التكفير }
+    wulat-amr:     { en: Relations with rulers,          ar: ولاة الأمر }
+    dawa:          { en: Methodology of daʿwa,           ar: منهج الدعوة }
+
+quran:
+  name_en: Qur'an and tafsīr
+  name_ar: القرآن والتفسير
+  sub:
+    tafsir:        { en: Exegesis,                       ar: التفسير }
+    tajwid:        { en: Recitation,                     ar: التجويد }
+    hifz:          { en: Memorisation,                   ar: الحفظ }
+    adab-quran:    { en: Handling the mushaf,            ar: آداب القرآن }
+
+hadith:
+  name_en: Hadith sciences
+  name_ar: علوم الحديث
+  sub:
+    mustalah:      { en: Terminology,                    ar: المصطلح }
+    tashih-tadif:  { en: Authentication and weakening,   ar: التصحيح والتضعيف }
+    sharh:         { en: Explanation of single hadiths,  ar: شرح الأحاديث }
+
+fiqh:
+  name_en: Fiqh
+  name_ar: الفقه
+  sub:
+    taharah:       { en: Purification,                   ar: الطهارة }
+    salah:         { en: Prayer,                         ar: الصلاة }
+    janaiz:        { en: Funeral rites,                  ar: الجنائز }
+    zakah:         { en: Zakāh,                          ar: الزكاة }
+    siyam:         { en: Fasting,                        ar: الصيام }
+    hajj:          { en: Hajj and ʿumra,                 ar: الحج والعمرة }
+    adahi:         { en: Sacrifice, ʿaqīqa,              ar: الأضاحي والعقيقة }
+    buyu:          { en: Trade and contracts,            ar: البيوع }
+    riba:          { en: Interest, banking,              ar: الربا }
+    nikah:         { en: Marriage, proposal, mahr,       ar: النكاح }
+    talaq:         { en: Divorce, ʿidda,                 ar: الطلاق }
+    atima:         { en: Food, slaughter,                ar: الأطعمة }
+    libas:         { en: Clothing, hijāb,                ar: اللباس }
+    aymaan:        { en: Oaths and vows,                 ar: الأيمان والنذور }
+    mawarith:      { en: Inheritance,                    ar: المواريث }
+    tibb:          { en: Medicine, the body,             ar: الطب والأبدان }
+    usul-fiqh:     { en: Usūl al-fiqh,                   ar: أصول الفقه }
+
+adab:
+  name_en: Manners and character
+  name_ar: الآداب والأخلاق
+  sub:
+    akhlaq:        { en: Character,                      ar: الأخلاق }
+    dhikr-dua:     { en: Remembrance and supplication,   ar: الذكر والدعاء }
+    walidayn:      { en: Parents and kinship,            ar: بر الوالدين وصلة الرحم }
+    usra:          { en: Family, raising children,       ar: الأسرة والتربية }
+    muamala:       { en: Dealing with people,            ar: المعاملة }
+
+ilm:
+  name_en: Seeking knowledge
+  name_ar: طلب العلم
+  sub:
+    talab:         { en: How to seek knowledge,          ar: كيفية الطلب }
+    kutub:         { en: Book recommendations,           ar: الكتب }
+    mashayikh:     { en: Taking from the scholars,       ar: الأخذ عن العلماء }
+
+contemporary:
+  name_en: Contemporary issues
+  name_ar: النوازل والمسائل المعاصرة
+  sub:
+    west:          { en: Living in non-Muslim countries, ar: الإقامة في بلاد الكفار }
+    finance:       { en: Modern finance, insurance,      ar: المسائل المالية المعاصرة }
+    tech:          { en: Technology, internet, media,    ar: التقنية ووسائل التواصل }
+    medical:       { en: Modern medical questions,       ar: المسائل الطبية المعاصرة }
+    work:          { en: Work and employment,            ar: العمل والوظائف }

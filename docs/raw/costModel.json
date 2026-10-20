@@ -1,0 +1,285 @@
+{
+ "assumptions": [
+  "WECHSELKURS: 1 USD = 0,92 EUR. Alle USD-Preise aus der Recherche werden mit diesem Faktor umgerechnet. Alle EUR-Betraege netto (ohne MwSt.). Hetzner-Preise sind bereits EUR-Listenpreise und werden NICHT umgerechnet.",
+  "AUDIO-LAENGE: S1 70 h / 500 Videos = 8,4 min; S2 700 h / 5.000 = 8,4 min; S3 4.000 h / 30.000 = 8,0 min. Gerechnet wird durchgaengig in Audiostunden, nicht in Videoanzahl.",
+  "SPRECHRATE: 130 arabische Woerter pro Minute Audio (Recherche-Annahme aus Block 4). 1.000 h = 60.000 min = 7,8 Mio. arabische Woerter.",
+  "TOKENFAKTOR ARABISCH: 4 Token pro arabischem Wort. [UNVERIFIZIERT - die Recherche sagt ausdruecklich, der Claude-Tokenizer ab 4.7 erzeuge generell ca. 30% mehr Token und der arabische Faktor sei ungemessen. 4 Token/Wort ist bewusst konservativ. Vor dem Budget-Commit 20 echte Transkripte mit messages.count_tokens messen - wenn der echte Faktor 5,5 ist, steigen alle Uebersetzungs-, Embedding- und Synthese-Positionen um 37%.] 1.000 h = 31,2 Mio. AR-Token.",
+  "CHUNKS: Q&A-Einheiten statt fixer Tokenlaenge, ca. 16 AR-Chunks pro 8-min-Video, mal 3 Sprachen. S3 (30.000 Videos) = ca. 1,44 Mio. Vektoren, halfvec(1024) = 2 KB x 1,3 HNSW-Overhead = ca. 3,7 GB Index. Passt in 32 GB RAM, also KEINE dedizierte Vektor-DB in keinem Szenario.",
+  "SYNTHESE-PROMPT: 14.000 Input-Token pro Antwort (ca. 12-15 Chunks AR+Uebersetzung, System-Prompt, Glossar, Gelehrten-gruppierte search_result-Bloecke) und 800 Output-Token. Die Recherche veranschlagte 11.000/600 - ich rechne wegen des arabischen Tokenaufschlags konservativer.",
+  "PROMPT-CACHING: 6.000 der 14.000 Input-Token sind stabil (System-Prompt, Glossar, Few-Shot, Abstain-Policy) und werden als Cache-Read zu 0,05x abgerechnet. 8.000 Token (die abgerufenen Chunks) sind pro Frage frisch. Cache-Write-Kosten amortisieren sich ab ca. 20 Fragen pro 5-Minuten-Fenster und werden deshalb nicht eigens gebucht - bei S1 mit nur 2.000 Fragen/Monat (ca. 2,8 Fragen/Stunde) ist diese Amortisation [UNSICHER], dort ist der Prompt-Cache-Vorteil real kleiner.",
+  "ANTWORT-CACHE-TRAFFERQUOTE: S1 30%, S2 50%, S3 60% (bzw. 75% im aggressiven Pre-Caching-Szenario). Die Recherche nannte 60-70% - ich starte bewusst niedriger, weil ein Fatwa-Korpus wegen Kontextabhaengigkeit (Reisender vs. Ansaessiger, Frau vs. Mann) eine harte Cache-Schwelle von 0,97 plus lexikalisches Gate braucht und damit weniger Treffer erzeugt als eine Produkt-FAQ.",
+  "QUERY-VOLUMEN vs. BESUCHER: Query-Expansion (Haiku) laeuft auf ALLEN Fragen, Synthese/Verifier/Reranking nur auf Cache-Misses.",
+  "MEDIEN-MENGENGERUEST: Opus 24 kbit/s mono = 0,176 MB/min gespeichert und ausgeliefert. Video-ABR-Ladder (360/480/720p) = 20 MB/min gespeichert, 9 MB/min ausgeliefert (Recherche Block 5). Originale fuer Cold Storage: 60 MB pro Video.",
+  "TRAFFIC-ANNAHME: 1 Wiedergabe-Session pro Besucher, 5 Minuten tatsaechlich gehoert. S1 25.000 min, S2 400.000 min, S3 3.500.000 min ausgeliefert pro Monat.",
+  "ASR: Soniox async 0,10 USD/h als Primaerpass (Diarization inklusive, verifiziert) plus 15% des Korpus im Zweitpass auf Speechmatics Enhanced 0,75 USD/h fuer Altkassetten und Rauschmaterial (verifiziert). Dieser Zweitpass ist die groesste Einzelposition des Ingests - ohne ihn halbiert sich der Ingest fast.",
+  "HOSTING: Hetzner CX/CAX-Linie (nicht CPX/CCX nach der Preiserhoehung vom 15.06.2026). CX23 5,49 / CX33 8,49 / CX43 15,99 / CX53 29,49 EUR/Monat. [UNVERIFIZIERT - die Recherche sagt ausdruecklich, hetzner.com rendert Preise per JS und war nicht maschinell auslesbar; alle Hetzner-VM-Preise stammen aus zwei Sekundaerquellen, die sich um bis zu 30% unterscheiden (CX23 5,49 vs. 7,13 EUR). Vor Buchung in der Console gegenpruefen.] Zusaetzlich 20% Backup-Aufschlag und 0,60 EUR/Monat IPv4 pro VM.",
+  "OBJECT STORAGE: Hetzner Object Storage 6,49 EUR/Monat inkl. 1 TB Storage + 1 TB Egress, darueber 8,70 EUR/TB Storage und 1 EUR/TB Egress. Cold-Archiv der Originale auf Backblaze B2 zu 6,95 USD/TB (verifiziert). CDN: Bunny Volume-Tier 0,005 USD/GB global flat (verifiziert) - NICHT das Standard-Netz, dort kostet Middle East & Africa 0,060 USD/GB, also das Zwoelffache.",
+  "NICHT MONETARISIERT: die menschliche Review. Bei 90-180 min Review pro Audiostunde sind das S1 105-210 Personenstunden, S2 1.050-2.100, S3 6.000-12.000. Das ist der eigentliche Projektengpass und erscheint in keiner dieser Rechnungen, weil es Freiwilligenarbeit ist. Bei 15 EUR/h bezahlter Arbeit waere S3 allein dafuer 90.000-180.000 EUR.",
+  "NICHT ENTHALTEN: Entwicklerzeit, Vereinsgruendung, Rechtsberatung, Steuerberatung, GPU fuer eventuelles Reranker-Self-Hosting (wird ausdruecklich nicht empfohlen, siehe Hebel)."
+ ],
+ "oneOffIngest": "EINMALIGE INGEST-KOSTEN PRO 1.000 STUNDEN AUDIO (alle drei Sprachen fertig indexiert)\n\nMengengeruest: 1.000 h = 60.000 min = 7,8 Mio. AR-Woerter = 31,2 Mio. AR-Token = ca. 7.500 Videos a 8 min.\n\n1) ASR Primaerpass (Soniox async, Diarization inkl.)\n   1.000 h x 0,10 USD/h = 100,00 USD = 92,00 EUR\n\n2) ASR Zweitpass auf den schwierigsten 15% (Speechmatics Enhanced, Altkassetten/Rauschen)\n   0,15 x 1.000 h x 0,75 USD/h = 112,50 USD = 103,50 EUR\n   [Diese Position ist optional. Weglassen halbiert praktisch den Ingest - aber genau dieses Material hat 20-40% WER.]\n\n3) Alignment (Text-zu-Text-Alignment ASR-Timing gegen menschliches Transkript, Fallback ctc-forced-aligner)\n   30 GPU-h x 0,34 USD/h (RunPod RTX 4090 Community, verifiziert) = 10,20 USD = 9,38 EUR\n   [UNVERIFIZIERT: die 30 GPU-h pro 1.000 h Audio sind eine konservative Durchsatzschaetzung. Die Recherche warnt ausdruecklich, dass publizierte Durchsatzzahlen zwischen 19,7x und 1011x Realtime streuen. Selbst bei Faktor 5 schlechter waeren es nur 47 EUR.]\n\n4) Maschinenuebersetzung DE + EN (segmentweise, Claude Haiku 5.5 Batch-API 0,05 / 0,25 USD je 1M)\n   pro Sprache: Input 3 x 31,2M = 93,6M Token x 0,05 USD/1M = 4,68 USD\n                Output 31,2M Token x 0,25 USD/1M = 7,80 USD\n                = 12,48 USD\n   x 2 Sprachen = 24,96 USD = 22,96 EUR\n   [Input-Overheadfaktor 3 deckt das +/-3-Segmente-Kontextfenster ab.]\n\n5) Uebersetzungs-QA zweistufig\n   Screening Haiku 5.5 Batch: (AR+DE+EN) 93,6M Input x 0,05 USD/1M = 4,68 USD + 5M Output x 0,25 = 1,25 USD = 5,93 USD\n   Tiefpruefung der markierten 15% mit Sonnet 5.5 Batch: 14,04M x 1,00 USD/1M = 14,04 USD + 0,75M x 5,00 = 3,75 USD = 17,79 USD\n   Summe = 23,72 USD = 21,82 EUR\n\n6) Embeddings, alle drei Sprachen (BGE-M3 self-hosted, ONNX, RunPod A5000 0,16 USD/h)\n   93,6M Token / ca. 2M Token je GPU-h = 47 GPU-h x 0,16 USD = 7,52 USD\n   Konservativ angesetzt mit 15,00 USD = 13,80 EUR\n   [UNVERIFIZIERT: Durchsatz 2M Token/GPU-h ist geschaetzt. Gegenprobe ueber API-Preis: 93,6M x 0,13 USD/1M (OpenAI, verifiziert) = 12,17 USD - dieselbe Groessenordnung. Embeddings sind in JEDEM Fall irrelevant fuer das Budget.]\n\n7) Ingest-Tagging / Themenklassifikation (Haiku 5.5 Batch)\n   7.500 Videos x 0,0007 USD = 5,25 USD = 4,83 EUR\n\n8) Transkodierung\n   Audio Opus 24 kbit/s mono: laeuft marginal auf der ohnehin bezahlten VM\n   ca. 100 CPU-h / 8 vCPU = 12,5 Wandstunden auf CX43 (15,99 EUR/720 h) = 0,28 EUR\n   Video HLS-Ladder zusaetzlich: ca. 500 CPU-h = 62 Wandstunden = 1,38 EUR\n   Angesetzt: 0,30 EUR (Audio-only) bzw. 1,70 EUR (mit Video)\n\nZWISCHENSUMME (ohne Contextual Retrieval): 268,60 EUR je 1.000 h\n\n9) Contextual Retrieval (Anthropic-Methode, 50-100 Token generierter Kontext je Chunk, 1,02 USD je 1M Dokument-Token mit Prompt-Caching) - OPTIONAL, aber bei gesprochenen Fatawa mit vielen Rueckbezuegen stark empfohlen\n   31,2M Token x 1,02 USD/1M = 31,82 USD = 29,28 EUR\n\nGESAMT MIT CONTEXTUAL RETRIEVAL: 297,90 EUR je 1.000 h Audio\nGESAMT OHNE ASR-ZWEITPASS: 165,10 EUR je 1.000 h\nANTEILE: ASR 73%, Uebersetzung+QA 17%, Embeddings 5%, Rest 5%.\n\nBATCH-API-EFFEKT: Positionen 4, 5 und 7 ueber die Standard-API statt Batch kosten 107,86 USD statt 53,93 USD - also 49,62 EUR Mehrkosten je 1.000 h. Bei S3 (4.000 h) sind das 198 EUR, die ein einziger Parameter spart.\n\nRE-INDEX BEI EMBEDDING-MODELLWECHSEL (realistisch alle 12-18 Monate): nur Position 6, also 13,80 EUR je 1.000 h. Bei S3 = 55 EUR. Das ist der Grund, warum die Partitionierung nach model_id von Tag 1 eingebaut gehoert - der Wechsel selbst kostet fast nichts, nur das Schema wuerde ihn verhindern.\n\nPRO SZENARIO: S1 (70 h) = 20,85 EUR | S2 (700 h) = 208,51 EUR | S3 (4.000 h) = 1.191,48 EUR (jeweils inkl. Contextual Retrieval).",
+ "scenarios": [
+  {
+   "name": "S1 \"Start\" - optimiert, Audio-first, Opus 5.5 fuer die Synthese",
+   "corpus": "500 Videos, 70 h Audio. Einmaliger Ingest: 70/1000 x 297,90 EUR = 20,85 EUR (mit Contextual Retrieval), bzw. 18,80 EUR ohne. Realistisch 25-30 EUR mit Puffer fuer Wiederholungslaeufe und das 20-Clip-Bake-off (Speechmatics 100 USD und Gladia 50 EUR Startguthaben decken das Bake-off vollstaendig).",
+   "traffic": "2.000 KI-Fragen/Monat, 5.000 Besucher/Monat, 25.000 ausgelieferte Audiominuten/Monat. Cache-Trefferquote konservativ 30% -> 1.400 Cache-Misses.",
+   "lineItems": [
+    {
+     "item": "LLM-Synthese (Claude Opus 5.5, effort=high, search_result-Bloecke mit Citations)",
+     "basis": "1.400 Misses x (6.000 Cache-Read-Token x 0,20 USD/1M + 8.000 frische Token x 4,00 USD/1M + 800 Output x 20,00 USD/1M) = 1.400 x 0,0492 USD = 68,88 USD",
+     "monthlyEur": "63,37"
+    },
+    {
+     "item": "Query-Verstehen / Expansion / Glossar-Lookup (Haiku 5.5)",
+     "basis": "2.000 Fragen x 0,0003 USD = 0,60 USD (laeuft auf ALLEN Fragen, auch Cache-Treffern)",
+     "monthlyEur": "0,55"
+    },
+    {
+     "item": "Verifier auf Satzebene (Haiku 5.5, Structured Output, Attributionspruefung gegen scholar_id)",
+     "basis": "1.400 Misses x 0,0015 USD = 2,10 USD",
+     "monthlyEur": "1,93"
+    },
+    {
+     "item": "Reranking (Voyage rerank-3-lite)",
+     "basis": "1.400 Misses x 50 Kandidaten x 300 Token = 21M Token x 0,02 USD/1M = 0,42 USD. Faellt im ersten Jahr komplett in das 200M-Freikontingent -> real 0,00 EUR",
+     "monthlyEur": "0,39 (real 0,00 im Freikontingent)"
+    },
+    {
+     "item": "Query-Embedding (BGE-M3 ONNX int8 auf CPU der App-VM)",
+     "basis": "2.000 Queries, marginal auf bereits bezahlter VM",
+     "monthlyEur": "0,00"
+    },
+    {
+     "item": "Server: App + Worker + Postgres(pgvector, pg_search) + Redis auf EINER Hetzner CX33",
+     "basis": "8,49 EUR + 20% Backup (1,70) + IPv4 (0,60) = 10,79 EUR [UNVERIFIZIERT: Hetzner-Preis aus Sekundaerquelle]",
+     "monthlyEur": "10,79"
+    },
+    {
+     "item": "Object Storage (Hetzner, Audio-Renditions)",
+     "basis": "4.200 min x 0,176 MB = 0,74 GB. Weit unter dem 1-TB-Grundpaket -> Pauschale 6,49 EUR",
+     "monthlyEur": "6,49"
+    },
+    {
+     "item": "Cold-Archiv der unveraenderten Originale (Backblaze B2)",
+     "basis": "500 Videos x 60 MB = 29,3 GB x 6,95 USD/TB = 0,20 USD",
+     "monthlyEur": "0,18"
+    },
+    {
+     "item": "CDN-Egress Audio (Bunny Volume-Tier)",
+     "basis": "25.000 min x 0,176 MB = 4,3 GB x 0,005 USD/GB = 0,02 USD",
+     "monthlyEur": "0,02"
+    },
+    {
+     "item": "Monitoring (Sentry Cloud Developer, 5.000 Errors/Monat frei) + Tracing in eigene Postgres-Tabelle",
+     "basis": "Freikontingent reicht bei diesem Volumen deutlich [Sentry-Free-Tier aus Sekundaerquelle]",
+     "monthlyEur": "0,00"
+    },
+    {
+     "item": "Domain + TLS + Sonstiges",
+     "basis": "ca. 15 EUR/Jahr Domain / 12 = 1,25 EUR",
+     "monthlyEur": "1,25"
+    },
+    {
+     "item": "MEMO - dieselben 2.000 Fragen OHNE Prompt-Caching und OHNE Antwort-Cache",
+     "basis": "2.000 x (14.000 x 4,00/1M + 800 x 20,00/1M + 0,0021) = 2.000 x 0,0741 USD = 148,20 USD",
+     "monthlyEur": "136,34 statt 66,24 - die Optimierung spart hier 70,10 EUR/Monat (51%)"
+    },
+    {
+     "item": "MEMO - Video-Auslieferung statt Audio-only",
+     "basis": "Storage 82 GB HLS (bleibt im 1-TB-Paket, 0 EUR Mehrkosten) + Egress 25.000 min x 9 MB = 219,7 GB x 0,005 USD/GB = 1,10 USD = 1,01 EUR statt 0,02 EUR",
+     "monthlyEur": "+0,99 (irrelevant bei dieser Groesse)"
+    }
+   ],
+   "totalMonthlyEur": "84,97 EUR/Monat (optimiert, Audio-first, Opus). Varianten: 85,96 EUR mit Video-Auslieferung | 53,29 EUR wenn die Synthese auf Sonnet 5.5 laeuft | 155,07 EUR ohne Prompt- und Antwort-Caching. Plus einmalig ca. 25 EUR Ingest. In Phase 1 ist die LLM-Synthese bereits 75% der Rechnung, obwohl es nur 2.000 Fragen sind - die Infrastruktur ist Rauschen."
+  },
+  {
+   "name": "S2 \"Wachstum\" - optimiert, Audio-first, Opus 5.5 fuer die Synthese",
+   "corpus": "5.000 Videos, 700 h Audio. Einmaliger Ingest: 700/1000 x 297,90 EUR = 208,51 EUR (mit Contextual Retrieval), bzw. 188,01 EUR ohne. Davon allein 136,85 EUR ASR (92,00 Primaer + 103,50 Zweitpass, anteilig).",
+   "traffic": "30.000 KI-Fragen/Monat, 80.000 Besucher/Monat, 400.000 ausgelieferte Audiominuten/Monat. Cache-Trefferquote 50% -> 15.000 Cache-Misses.",
+   "lineItems": [
+    {
+     "item": "LLM-Synthese (Claude Opus 5.5)",
+     "basis": "15.000 Misses x 0,0492 USD = 738,00 USD",
+     "monthlyEur": "678,96"
+    },
+    {
+     "item": "Query-Verstehen / Expansion (Haiku 5.5)",
+     "basis": "30.000 Fragen x 0,0003 USD = 9,00 USD",
+     "monthlyEur": "8,28"
+    },
+    {
+     "item": "Verifier (Haiku 5.5)",
+     "basis": "15.000 Misses x 0,0015 USD = 22,50 USD",
+     "monthlyEur": "20,70"
+    },
+    {
+     "item": "Reranking (Voyage rerank-3-lite)",
+     "basis": "15.000 x 15.000 Token = 225M Token x 0,02 USD/1M = 4,50 USD. Das 200M-Freikontingent ist nach ca. 13 Monaten aufgebraucht",
+     "monthlyEur": "4,14"
+    },
+    {
+     "item": "Query-Embedding (self-hosted)",
+     "basis": "30.000 Queries auf CPU der App-VM, marginal",
+     "monthlyEur": "0,00"
+    },
+    {
+     "item": "Server: App CX43 + Postgres CX43 + Worker CX33 (getrennte Lastprofile)",
+     "basis": "(15,99 + 15,99 + 8,49) = 40,47 EUR + 20% Backup (8,09) + 3x IPv4 (1,80) = 50,36 EUR [UNVERIFIZIERT: Hetzner-Preise aus Sekundaerquelle]",
+     "monthlyEur": "50,36"
+    },
+    {
+     "item": "Redis / Valkey (Rate-Limiting, ISR-Cache-Handler)",
+     "basis": "Prozess auf der Worker-VM, kein eigener Dienst",
+     "monthlyEur": "0,00"
+    },
+    {
+     "item": "Object Storage (Hetzner, Audio-Renditions)",
+     "basis": "42.000 min x 0,176 MB = 7,2 GB. Grundpaket 6,49 EUR",
+     "monthlyEur": "6,49"
+    },
+    {
+     "item": "Cold-Archiv Originale (B2)",
+     "basis": "5.000 x 60 MB = 293 GB x 6,95 USD/TB = 1,99 USD",
+     "monthlyEur": "1,83"
+    },
+    {
+     "item": "CDN-Egress Audio (Bunny Volume)",
+     "basis": "400.000 min x 0,176 MB = 68,8 GB x 0,005 USD/GB = 0,34 USD",
+     "monthlyEur": "0,32"
+    },
+    {
+     "item": "Monitoring (GlitchTip self-hosted auf der Worker-VM, Sentry-SDK-kompatibel)",
+     "basis": "Sentry-Free-Tier (5.000 Errors) reisst bei diesem Volumen. GlitchTip laeuft in ca. 2 GB RAM marginal mit. Alternative Sentry Team 26 USD = 23,92 EUR",
+     "monthlyEur": "0,00 (Alternative: 23,92)"
+    },
+    {
+     "item": "Domain + TLS + Sonstiges (zweite Domain, Statusseite)",
+     "basis": "ca. 24 EUR/Jahr / 12 = 2,00 EUR",
+     "monthlyEur": "2,00"
+    },
+    {
+     "item": "MEMO - dieselben 30.000 Fragen OHNE Prompt-Caching und OHNE Antwort-Cache",
+     "basis": "30.000 x 0,0741 USD = 2.223,00 USD",
+     "monthlyEur": "2.045,16 statt 712,08 - die Optimierung spart 1.333,08 EUR/Monat (65%)"
+    },
+    {
+     "item": "MEMO - Synthese auf Sonnet 5.5 statt Opus 5.5",
+     "basis": "15.000 x (6.000 x 0,10/1M + 8.000 x 2,00/1M + 800 x 10,00/1M) = 15.000 x 0,0246 USD = 369,00 USD statt 738,00 USD",
+     "monthlyEur": "339,48 statt 678,96 - spart 339,48 EUR/Monat"
+    },
+    {
+     "item": "MEMO - Video-Auslieferung statt Audio-only",
+     "basis": "Storage 820 GB HLS (noch im 1-TB-Paket, 0 EUR Mehrkosten) + Egress 400.000 min x 9 MB = 3.515 GB x 0,005 USD/GB = 17,58 USD = 16,17 EUR statt 0,32 EUR",
+     "monthlyEur": "+15,85"
+    }
+   ],
+   "totalMonthlyEur": "773,08 EUR/Monat (optimiert, Audio-first, Opus). Varianten: 788,93 EUR mit Video | 433,60 EUR mit Sonnet-Synthese | 2.106,16 EUR ohne Caching-Optimierungen. Plus einmalig ca. 210 EUR Ingest. Die Infrastruktur ist mit 61,00 EUR nur noch 8% der Rechnung - 92% ist LLM, davon 88% die Synthese allein. Ab hier ist jede Diskussion ueber Serverwahl Zeitverschwendung, die einzige relevante Frage ist Modell und Cache-Trefferquote."
+  },
+  {
+   "name": "S3 \"Gross\" - optimiert, Audio-first, Sonnet 5.5 + aggressives Pre-Caching (75%)",
+   "corpus": "30.000 Videos, 4.000 h Audio. Einmaliger Ingest: 4 x 297,90 EUR = 1.191,48 EUR (mit Contextual Retrieval), bzw. 1.074,36 EUR ohne. Ohne ASR-Zweitpass nur 660,36 EUR. Korpus im Index: ca. 1,44 Mio. Vektoren, halfvec(1024), ca. 3,7 GB HNSW-Index - passt weiterhin vollstaendig in den RAM einer einzigen Maschine.",
+   "traffic": "300.000 KI-Fragen/Monat, 700.000 Besucher/Monat, 3.500.000 ausgelieferte Audiominuten/Monat. Cache-Trefferquote 75% durch Pre-Caching der Top-5.000 Fragen mit menschlicher Freigabe -> 75.000 Cache-Misses.",
+   "lineItems": [
+    {
+     "item": "LLM-Synthese (Claude Sonnet 5.5 mit Prompt-Caching)",
+     "basis": "75.000 Misses x (6.000 x 0,10 USD/1M + 8.000 x 2,00 USD/1M + 800 x 10,00 USD/1M) = 75.000 x 0,0246 USD = 1.845,00 USD",
+     "monthlyEur": "1.697,40"
+    },
+    {
+     "item": "Query-Verstehen / Expansion (Haiku 5.5)",
+     "basis": "300.000 Fragen x 0,0003 USD = 90,00 USD",
+     "monthlyEur": "82,80"
+    },
+    {
+     "item": "Verifier (Haiku 5.5)",
+     "basis": "75.000 Misses x 0,0015 USD = 112,50 USD",
+     "monthlyEur": "103,50"
+    },
+    {
+     "item": "Reranking (Voyage rerank-3-lite)",
+     "basis": "75.000 x 15.000 Token = 1.125M Token x 0,02 USD/1M = 22,50 USD. WICHTIG: Self-Hosting von bge-reranker-v2-m3 auf einer dauerhaften A5000 kostet 0,16 USD/h x 730 h = 116,80 USD/Monat = das Fuenffache. Hier NICHT self-hosten.",
+     "monthlyEur": "20,70"
+    },
+    {
+     "item": "Query-Embedding (BGE-M3 self-hosted)",
+     "basis": "300.000 Queries, marginal auf vorhandener CPU",
+     "monthlyEur": "0,00"
+    },
+    {
+     "item": "Server: 2x App CX53 + 1x Postgres CX53 + 1x Worker CX43",
+     "basis": "(29,49 x 2 + 29,49 + 15,99) = 104,46 EUR + 20% Backup (20,89) + 4x IPv4 (2,40) = 127,75 EUR [UNVERIFIZIERT: Hetzner-Preise aus Sekundaerquelle; CX53 = 16 vCPU / 32 GB, reicht fuer 3,7 GB Index im RAM]",
+     "monthlyEur": "127,75"
+    },
+    {
+     "item": "Redis / Valkey (semantischer Cache, Rate-Limiting, geteilter ISR-Cache-Handler)",
+     "basis": "Prozess auf der Worker-VM",
+     "monthlyEur": "0,00"
+    },
+    {
+     "item": "Object Storage (Hetzner, Audio-Renditions)",
+     "basis": "240.000 min x 0,176 MB = 41,2 GB. Grundpaket 6,49 EUR inkl. 1 TB Storage + 1 TB Egress",
+     "monthlyEur": "6,49"
+    },
+    {
+     "item": "Cold-Archiv Originale (B2)",
+     "basis": "30.000 x 60 MB = 1.758 GB x 6,95 USD/TB = 11,93 USD",
+     "monthlyEur": "10,98"
+    },
+    {
+     "item": "CDN-Egress Audio (Bunny Volume-Tier, global flat)",
+     "basis": "3.500.000 min x 0,176 MB = 601,6 GB x 0,005 USD/GB = 3,01 USD. Im Bunny Standard-Netz waere Middle East & Africa 0,060 USD/GB = 36,10 USD - Faktor 12.",
+     "monthlyEur": "2,77"
+    },
+    {
+     "item": "Monitoring + Tracing (GlitchTip + Langfuse/Phoenix auf eigener CX23)",
+     "basis": "5,49 EUR. Bei dieser Groesse ist Tracing keine Kuer, sondern der Nachweis, welche Transkriptstellen zu welcher Antwort gefuehrt haben.",
+     "monthlyEur": "5,49"
+    },
+    {
+     "item": "Domains + TLS + Statusseite + Sonstiges",
+     "basis": "ca. 36 EUR/Jahr / 12 = 3,00 EUR",
+     "monthlyEur": "3,00"
+    },
+    {
+     "item": "MEMO - dieselben 300.000 Fragen OHNE jede Optimierung (Opus, kein Prompt-Cache, kein Antwort-Cache)",
+     "basis": "300.000 x 0,0741 USD = 22.230,00 USD",
+     "monthlyEur": "20.451,60 statt 1.904,40 - Faktor 10,7"
+    },
+    {
+     "item": "MEMO - Opus 5.5 statt Sonnet, bei nur 60% Cache-Trefferquote",
+     "basis": "120.000 Misses x 0,0492 USD = 5.904,00 USD Synthese + 82,80 + 165,60 + 33,12 EUR Nebenkosten",
+     "monthlyEur": "5.713,20 (LLM) = 5.869,68 gesamt - fuer ein Spendenprojekt untragbar"
+    },
+    {
+     "item": "MEMO - Video-Auslieferung statt Audio-only",
+     "basis": "Storage: 4.687 GB HLS = 6,49 EUR + (4.687-1024)/1024 x 8,70 EUR = 37,62 EUR statt 6,49 EUR. Egress: 3.500.000 min x 9 MB = 30.762 GB x 0,005 USD/GB = 153,81 USD = 141,50 EUR statt 2,77 EUR.",
+     "monthlyEur": "+169,86 (Medienkosten steigen von 9,26 auf 179,12 EUR, Faktor 19)"
+    }
+   ],
+   "totalMonthlyEur": "2.060,88 EUR/Monat (optimiert, Audio-first, Sonnet, 75% Cache). Varianten: 2.230,74 EUR mit Video-Auslieferung | 3.153,84 EUR mit Sonnet aber nur 60% Cache | 5.869,68 EUR mit Opus-Synthese | 20.777,94 EUR ohne jede Optimierung und mit Video. Plus einmalig ca. 1.190 EUR Ingest. Die Infrastruktur (156,48 EUR) ist 7,6% der Rechnung. 82% ist die Synthese allein."
+  }
+ ],
+ "biggestLevers": [
+  "ANTWORT-CACHE (Hebel 1, mit Abstand groesster Effekt). Jeder Prozentpunkt Cache-Trefferquote senkt Synthese, Verifier und Reranking gleichzeitig. S3: Trefferquote 0% -> 2.715,84 EUR Synthese (Sonnet); 60% -> 2.715,84 x 0,4 = 1.086,34 EUR... bzw. in der Rechnung oben 75% -> 1.697,40 EUR gegenueber 6.789,60 EUR bei 0%. Jeder Prozentpunkt ist bei S3 ca. 67 EUR/Monat wert. Konkret: 75% statt 60% spart 1.018 EUR/Monat. Pre-Caching der Top-5.000 Fragen ist damit nicht primaer eine Kostenmassnahme, sondern zahlt sich doppelt aus, weil es gleichzeitig die einzige realistische Moeglichkeit ist, Antworten VOR Auslieferung von einem Bruder mit Ilm gegenlesen zu lassen.",
+  "MODELLWAHL FUER DIE SYNTHESE (Hebel 2). Sonnet 5.5 statt Opus 5.5 halbiert die groesste Einzelposition exakt: 0,0246 vs. 0,0492 USD pro Antwort. S2: -339,48 EUR/Monat. S3: -2.715,84 EUR/Monat bei 60% Cache. Das ist kein Sparen am falschen Ende, solange die Zitate per search_result-Bloecke erzwungen und vom Verifier geprueft werden - die Attributionstreue kommt aus der Architektur, nicht aus der Modellgroesse. Empfehlung: Routing nach Komplexitaet - Sonnet als Default, Opus nur fuer Fragen mit erkanntem Ikhtilaf ueber mehrere Gelehrte. Bei 20% Opus-Anteil liegt S3 bei 2.172 EUR statt 1.697 EUR (Sonnet pur) oder 5.432 EUR (Opus pur).",
+  "PROMPT-CACHING (Hebel 3). 6.000 der 14.000 Input-Token zu 0,05x statt 1,00x: -31,7% auf die Synthesekosten, ein einziger cache_control-Parameter. S2: -213 EUR/Monat bei Opus. S3: -850 EUR/Monat bei Sonnet und 75% Cache. Voraussetzung ist ein stabiler System-Prompt - wer das Glossar bei jeder Anfrage dynamisch zusammenbaut, zerstoert den Cache-Hit und merkt es nur an der Rechnung.",
+  "AUDIO STATT VIDEO ALS DEFAULT-AUSLIEFERUNG (Hebel 4, der groesste nicht-LLM-Hebel). Opus 24 kbit/s mono = 0,176 MB/min gegen 9 MB/min bei Video. S3: Medienkosten 9,26 EUR statt 179,12 EUR, Faktor 19. Bei Fatawa ist das Bild fast immer ein Standbild oder ein Scheich am Mikrofon - der Informationsverlust ist fast null, und 24 kbit/s laeuft auf jedem 2G-Netz im Maghreb. Das ist zugleich eine Architekturentscheidung, keine spaetere Optimierung: Deep-Links auf die Sekunde sind bei einer einzelnen progressiv ausgelieferten Datei zuverlaessiger als bei segmentiertem HLS.",
+  "ASR-ZWEITPASS-QUOTE (Hebel 5, der groesste Ingest-Hebel). Der Speechmatics-Enhanced-Zweitpass auf 15% des Korpus kostet 103,50 EUR je 1.000 h und ist damit 39% des gesamten Ingests. Bei S3 sind das 414 EUR von 1.191 EUR. Die Quote muss durch Confidence-Schwellen gesteuert werden, nicht pauschal gesetzt: wenn das Bake-off zeigt, dass Soniox auf eurem Material schon bei 8% kritisch wird, halbiert das die Position. Umgekehrt: Soniox allein ist mit 0,10 USD/h so billig, dass ein kompletter Zweitpass mit einem anderen guenstigen Anbieter (statt Speechmatics) zum Vergleichen nur 92 EUR je 1.000 h kostet.",
+  "BATCH-API IM INGEST (Hebel 6). Uebersetzung, QA und Tagging ueber die Batch-API statt synchron: pauschal -50%. S3: 198 EUR einmalig gespart. Klein in absoluten Zahlen, aber es ist ein Flag, kein Umbau - es gibt keinen Grund, es nicht zu setzen.",
+  "HOSTING-WAHL IST KEIN HEBEL MEHR, SONDERN EIN KOSTENRISIKO. Hetzner CX-Linie statt CPX/CCX nach der Preiserhoehung vom 15.06.2026 (CCX23 stieg von 31,49 auf 85,99 EUR, Faktor 2,73). Wer aus Gewohnheit CCX bucht, zahlt bei S3 statt 104,46 EUR etwa 280 EUR Serverkosten. Das sind 175 EUR/Monat - mehr als die gesamte Medienauslieferung im Audio-Modus. Aber gemessen an 1.700 EUR Synthese ist auch das Rauschen.",
+  "RERANKER NICHT SELF-HOSTEN. Voyage rerank-3-lite kostet bei S3 20,70 EUR/Monat; eine dauerhafte A5000 fuer bge-reranker-v2-m3 kostet 116,80 USD = 107,46 EUR/Monat. Der Reranker ist die eine Komponente, bei der die API auch im grossen Szenario deutlich billiger bleibt - und sie ist jederzeit austauschbar, weil ein Reranker-Wechsel eine Konfigzeile ist und keine Reindexierung ausloest."
+ ],
+ "costBlowups": [
+  "ARABISCHER TOKENFAKTOR HOEHER ALS 4/WORT. Die gesamte Rechnung haengt an dieser einen ungemessenen Zahl. Bei 5,5 Token/Wort steigen Uebersetzung, Contextual Retrieval, Embeddings UND die 14.000 Input-Token je Synthese um 37%. S3 waere dann ca. 2.700 statt 2.060 EUR/Monat, der Ingest ca. 1.550 statt 1.190 EUR. SCHUTZ: vor dem Budget-Commit 20 echte Transkripte durch messages.count_tokens schicken und den Faktor messen. Das ist eine Stunde Arbeit und verschiebt sonst jede Zahl hier.",
+  "CACHE-TREFFERQUOTE BLEIBT UNTER 30%. Die Schwelle von 0,97 plus lexikalisches Gate (Jaccard >= 0,8) ist bewusst streng, weil in diesem Korpus ein einziges Wort die Antwort kippt (musafir vs. muqim, Negation). Wenn die reale Fragenverteilung sehr breit ist, bleibt der Cache leer. S3 ohne Cache bei Sonnet: 6.789,60 EUR Synthese statt 1.697,40 EUR. SCHUTZ: Pre-Caching aus den tatsaechlichen Fragen der ersten Wochen plus einer kuratierten Liste klassischer Masail; Cache-Trefferquote als Dashboard-Metrik von Tag 1; wenn sie nach 4 Wochen unter 40% liegt, Modellwahl neu bewerten statt mehr Server kaufen.",
+  "BOT ODER SCRAPER FLUTET DEN CHAT-ENDPUNKT. Ein einzelner Angreifer mit 100.000 langen Fragen ueber Nacht erzeugt bei Opus 100.000 x 0,0741 USD = 7.410 USD = 6.817 EUR. Das ist die realistischste Art, dieses Projekt in einer Nacht zu zerstoeren, und Rate-Limiting per IP ist umgehbar. SCHUTZ (vierfach, nicht einfach): (1) harter Tages-Hardcap in EUR im Code, der den Endpunkt abschaltet - nicht der Kosten-Alarm beim Provider, der feuert erst, wenn das Geld weg ist; (2) Cloudflare Turnstile vor dem Endpunkt; (3) max_tokens-Deckel auf Input UND Output; (4) semantischer Cache, der identische Floodings gar nicht erst ans Modell laesst.",
+  "VIRALER MOMENT. Ein Video eines bekannten Da'i, das auf die Plattform verweist, kann den Traffic ueber Nacht verzehnfachen. Bei Video-Auslieferung waere S3 x 10 ein Egress von 307 TB = 1.538 USD = 1.415 EUR in einem Monat. SCHUTZ: Audio-only als Default (dann sind dieselben x10 nur 27,70 EUR), plus Cloudflare R2 als Hot-Origin, weil dort der Egress strukturell null kostet - das ist keine Optimierung, sondern eine Versicherung.",
+  "GEMINI-PREISVERDOPPLUNG ZUM 01.01.2027 (offiziell angekuendigt: Flash 0,75 -> 1,50 Input, 3,75 -> 7,50 Output). Wer sein Budget auf den aktuellen Flash-Preisen aufbaut, hat in Phase 2 die doppelten Kosten. Analog: gpt-5.6-sol ist laut Recherche Promo-Preis bis 21.11.2026 [UNVERIFIZIERT]. SCHUTZ: Modellaufrufe hinter ein eigenes Interface mit drei Rollen (synthesize, cheap_task, verify) legen - ein Providerwechsel ist dann eine Konfigzeile, kein Umbau.",
+  "EMBEDDING-MODELLWECHSEL MIT FALSCHEM SCHEMA. Der Re-Index selbst kostet fast nichts (55 EUR bei S3). Teuer wird er nur, wenn die Embeddings als Spalte in der chunk-Tabelle liegen statt in einer nach model_id partitionierten Tabelle - dann bedeutet ein Wechsel Downtime, Doppelschreiben und im schlimmsten Fall ein Rollback, waehrend der Chatbot aus einem halb migrierten Index antwortet. SCHUTZ: embedding(chunk_id, model_id, vec) plus app_config.active_embedding_model_id von Tag 1, CREATE INDEX CONCURRENTLY, Umschalten per Konfigwert.",
+  "ASR AUF REALEM MATERIAL VIEL SCHLECHTER ALS IM BENCHMARK. Die zitierten 6,5-10,8% WER stammen von FLEURS (sauber gelesenes MSA im Studio). Alte Kassetten mit Raumhall und Nadschdi-Einschlag liegen bei 20-40%. Das sprengt nicht die ASR-Rechnung (die bleibt bei 0,10 USD/h), sondern die Review-Rechnung: statt 90 min pro Audiostunde werden es 180+, und bei S3 sind das 12.000 Personenstunden statt 6.000. SCHUTZ: WER auf 20 echten Clips messen, BEVOR das Korpusziel festgelegt wird; Architektur so bauen, dass ungeprueftes Material sichtbar gekennzeichnet wird und nie als woertliches Zitat ausgegeben wird; Review nach Retrieval-Treffern priorisieren statt den Korpus linear abzuarbeiten.",
+  "CLOUDFLARE STREAM ODER MUX STATT GB-BASIERTER ABRECHNUNG. Bei S3 (240.000 Katalogminuten) kostet Cloudflare Stream allein fuer die SPEICHERUNG 240.000/1.000 x 5 USD = 1.200 USD = 1.104 EUR pro Monat, bevor irgendwer etwas anschaut. Mux waere 720 USD = 662 EUR. Das ist ein stiller Projektkiller, weil die Rechnung mit dem Archiv waechst, nicht mit der Nutzung. SCHUTZ: ausschliesslich GB-basierte Anbieter (Bunny, R2, Hetzner Object Storage, B2).",
+  "HETZNER ERHOEHT ERNEUT. 2026 gab es bereits eine Erhoehung um Faktor 2,2-2,7 bei CPX/CCX. Bestandspreise bleiben laut Ankuendigung erhalten - aber nur bis zum naechsten Rescale, also genau in dem Moment, in dem man waechst. SCHUTZ: Deployment als Docker Compose / Terraform statt Managed-Konsole, damit ein Providerwechsel ein Wochenende ist; Export-First ohnehin, weil Deplattformierung bei diesem Inhaltstyp ein reales Risiko ist.",
+  "GOOGLE-DRIVE-INGEST STIRBT AN QUOTEN ODER SERVICE-ACCOUNT-FALLSTRICKEN. Kostet kein Geld, aber Wochen Entwicklerzeit - und Entwicklerzeit ist in einem Ein-Personen-Team die teuerste Ressource im Projekt. Service Accounts haben keinen eigenen Speicher (403 storageQuotaExceeded ohne Shared Drive und damit ohne Google Workspace), watch-Channels laufen nach 1 bzw. 7 Tagen ohne Auto-Renew ab, und seit 01.05.2026 gilt fuer neue Projekte ein anderes Quota-Modell als fuer Testprojekte. SCHUTZ: changes.list-Polling mit persistiertem startPageToken statt watch-Channels, und so frueh wie moeglich auf ein eigenes presigned-URL-Formular umstellen - dort sind scholar_id und source_url technisch erzwingbar, was gleichzeitig das religioese Kernproblem loest."
+ ],
+ "cheapestViablePath": "GUENSTIGSTER TRAGFAEHIGER WEG - und zwar tragfaehig im Sinne der Zuschreibungstreue, nicht nur im Sinne des Preises.\n\nPHASE 1 (0-500 Videos): ca. 25 EUR einmalig + 85 EUR/Monat\nEine einzige Hetzner CX33 (8,49 EUR) traegt App, Worker, Postgres mit pgvector und pg_search sowie Redis. Audio-only als Default-Auslieferung von Tag 1 - das ist keine Sparmassnahme, die man spaeter nachruestet, sondern eine Architekturentscheidung, die bei S3 den Faktor 19 bei den Medienkosten ausmacht. ASR ueber Soniox (0,10 USD/h), Uebersetzung segmentweise mit Haiku 5.5 ueber die Batch-API, Embeddings mit BGE-M3 auf einer Miet-GPU fuer wenige Stunden, Reranking ueber Voyage rerank-3-lite im 200M-Freikontingent (das traegt die gesamte Beta kostenlos). Synthese mit Opus 5.5, weil bei 1.400 Antworten/Monat die 63 EUR es wert sind und die ersten Antworten die Vorlage fuer alle spaeteren sind. Prompt-Caching von Anfang an, auch wenn es bei 2.000 Fragen nur 51% spart - der Code dafuer soll schon stehen, wenn das Volumen kommt.\n\nDIE EINZIGE AUSGABE, DIE MAN HIER NICHT SPAREN DARF: das 20-Clip-Bake-off der ASR-Anbieter auf eurem echten Material. Es kostet dank Speechmatics-Startguthaben (100 USD) und Gladia (50 EUR) praktisch nichts, und es entscheidet ueber die Review-Last der naechsten drei Jahre - also ueber die einzige Groesse in diesem ganzen Modell, die in Personenjahren statt in Euro gemessen wird.\n\nPHASE 2 (bis 5.000 Videos): ca. 210 EUR einmalig + 434 EUR/Monat\nHier faellt die eine Entscheidung, die alles andere dominiert: Synthese von Opus auf Sonnet 5.5 umstellen, sobald die Zitat-Pipeline (search_result-Bloecke, Verifier mit Attributionspruefung gegen scholar_id) bewiesen hat, dass die Treue aus der Architektur kommt und nicht aus der Modellgroesse. Das halbiert 679 EUR auf 339 EUR. Parallel den Antwort-Cache auf 50% bringen. Drei VMs statt einer, weil Request-Latenz, Batch-CPU und Datenbank unterschiedliche Lastprofile sind. Monitoring auf GlitchTip self-hosted. Immer noch keine dedizierte Vektordatenbank, kein Qdrant, kein Meilisearch - bei 240.000 Vektoren waere das reiner Betriebsaufwand und, schlimmer, ein zweiter Zustand, der vom Review-Stand abweichen kann.\n\nPHASE 3 (bis 30.000 Videos): ca. 1.190 EUR einmalig + 2.060 EUR/Monat\nSonnet als Default mit Opus-Routing nur fuer erkannten Ikhtilaf, Cache-Trefferquote auf 75% durch Pre-Caching der Top-5.000 Fragen mit menschlichem Freigabeschritt. Vier VMs, Audio-only, Bunny Volume-CDN. 2.060 EUR/Monat sind fuer ein Spendenprojekt viel, aber erreichbar - und 82% davon ist eine einzige Position, die Synthese, die direkt am Nutzen haengt. Die gesamte Infrastruktur kostet 156 EUR.\n\nWORAN MAN DEN WEG ERKENNT: In jeder Phase gilt dieselbe Form. Ein Postgres, ein Objektspeicher, Audio statt Video, Batch-API im Ingest, Prompt-Cache und Antwort-Cache ueberall, Reranker als API statt self-hosted, und ein Modellinterface mit drei Rollen, damit der Provider austauschbar bleibt. Was sich zwischen den Phasen aendert, ist nicht die Architektur, sondern nur die Instanzgroesse und das Syntheseemodell.\n\nWAS MAN SICH VOM GELD NICHT KAUFEN KANN: Der Ingest fuer 4.000 h kostet 1.190 EUR und ist damit billiger als eine Woche Entwicklerzeit. Die menschliche Review desselben Materials sind 6.000-12.000 Personenstunden, also bei 20 aktiven Freiwilligen zu je 4 h/Woche zwischen anderthalb und drei Jahren. Das ist die wahre Kostenkurve dieses Projekts, und sie steht in keiner Zeile oben. Jede Architekturentscheidung sollte danach beurteilt werden, ob sie diese Zahl senkt - Review nach Retrieval-Treffern priorisieren, segmentweise uebersetzen lassen statt frei uebersetzen (halbiert den Aufwand pro Eintrag), Quran-Zitate per Lookup aus dem kanonischen Text einsetzen statt vom Reviewer korrigieren lassen, und ungeprueftes Material sichtbar kennzeichnen statt es zurueckzuhalten. Ein System, das nur mit vollstaendig geprueftem Korpus funktioniert, wird nie live gehen."
+}
