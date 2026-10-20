@@ -31,3 +31,4 @@ media/
 .DS_Store
 .art-temp/
 logs/
+.venv/

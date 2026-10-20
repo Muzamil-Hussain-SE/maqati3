@@ -1,0 +1,18 @@
+{
+  "site": {
+    "name": "Masdar",
+    "tagline": "Die Worte der Gelehrten, verknüpft mit der Sekunde, in der sie gesprochen wurden."
+  },
+  "nav": { "topics": "Themen", "scholars": "Gelehrte", "about": "Über" },
+  "entry": {
+    "attribution": {
+      "confirmed": "Offizielle Quelle",
+      "probably": "Zuschreibung nicht aus einer Primärquelle bestätigt"
+    },
+    "translationPending": "Noch keine geprüfte Übersetzung. Das arabische Original steht unten.",
+    "availableIn": "Verfügbar auf",
+    "jumpToSecond": "Ab hier abspielen",
+    "report": "Fehler melden"
+  },
+  "common": { "loading": "Lädt", "notFound": "Nicht gefunden" }
+}
