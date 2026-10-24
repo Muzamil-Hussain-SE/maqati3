@@ -72,3 +72,27 @@ def test_translation_may_not_start_while_the_arabic_is_not_approved(
 
 def test_translation_may_start_once_the_arabic_is_approved() -> None:
     assert can_start_translation(ReviewState.APPROVED) is True
+
+
+# A state read back from Postgres arrives as a plain string, not as an enum member.
+# The machine has to meet it at the boundary: InvalidTransition is the one error a
+# caller is told to handle, so nothing else may escape.
+
+
+def test_advance_accepts_a_stored_string_and_returns_an_enum_member() -> None:
+    assert advance("not_started", "draft_ready") is ReviewState.DRAFT_READY
+
+
+def test_advance_raises_invalid_transition_for_a_stored_string_outside_the_matrix() -> None:
+    with pytest.raises(InvalidTransition):
+        advance("approved", "in_progress")
+
+
+def test_advance_raises_invalid_transition_for_a_current_state_that_is_not_a_state() -> None:
+    with pytest.raises(InvalidTransition):
+        advance("gibberish", "draft_ready")
+
+
+def test_advance_raises_invalid_transition_for_a_target_that_is_not_a_state() -> None:
+    with pytest.raises(InvalidTransition):
+        advance("not_started", "gibberish")
