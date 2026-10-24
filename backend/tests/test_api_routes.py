@@ -438,7 +438,7 @@ def test_vtt_cue_with_a_stored_end_before_its_start_still_has_a_duration() -> No
 #: Everything WebVTT gives a meaning to inside cue text, plus an entity that is
 #: already escaped: a renderer that escapes `&` only when it does not look like an
 #: entity would turn this line back into something else.
-UNSAFE_CUE_TEXT = "R&D <b>\u0646\u0639\u0645</b> 5 --> 10 &amp; more"
+UNSAFE_CUE_TEXT = "R&D <b>نعم</b> 5 --> 10 &amp; more"
 
 
 def unsafe_cue_client() -> TestClient:
