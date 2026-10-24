@@ -5,14 +5,21 @@ How work happens in this repo — branching, TDD, commits, and what must never b
 
 ## Branching
 
-- `main` is the integration line. **Never commit AI-driven changes directly to `main`.**
-- One branch per task, not per session: `feat/<short-slug>`, branched fresh from `main`
-  at the start of each task. Never continue a new task on whatever branch happens to be
-  checked out — that silently chains unrelated work together.
-- **Never rewrite history that has landed on `main`**: no `rebase`, no `--amend`, no
-  force-push. If a branch is behind, merge — don't rebase.
-- Before landing: the full test suite must be green. On a feature branch before landing,
-  history cleanup (squash, amend) is fine — nothing references those hashes yet.
+**Solo phase (current): commit directly to `main`.** One person works on this repo and
+reads every commit before it lands, so a branch-per-task buys isolation nobody needs yet
+and GitHub only counts contributions on the default branch anyway. The rule below still
+applies in full — TDD discipline does not relax just because the branch does.
+
+- Before every commit: the full test suite must be green. There is no separate "landing"
+  step to catch a broken commit later — the commit *is* the landing.
+- **Never rewrite history that has already been pushed to `origin/main`**: no `rebase`,
+  no `--amend`, no force-push. If something needs fixing, fix it forward in a new commit.
+  (History *before* it's pushed — e.g. cleaning up a commit made two minutes ago that
+  hasn't left this machine — is fine to amend.)
+- If a second person joins, or solo work needs to try something without touching `main`
+  mid-task, switch back to feature branches: `feat/<short-slug>` off `main`, PR before
+  merging, no direct AI-driven commits to `main`. Update this section when that happens
+  — don't let the two models coexist undocumented.
 
 ## Commits
 

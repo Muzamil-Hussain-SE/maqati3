@@ -10,10 +10,11 @@ search tool that answers a question by pointing at the scholars' own words.
 The product is one sentence: **show me where he said it.**
 
 `masdar` is a working name — cheap to change while the site is not public, expensive
-after. The repo is private for now and intended to go open source.
+after. The repo is public and open source.
 
-**Status: design complete, no application code yet.** The intake structure exists and
-can collect material today without any backend.
+**Status: Phase 1 backend modules in progress** (text, dedup, register, db, api) —
+schema in place, integrity gates enforced and tested, intake structure already
+collecting material without needing the backend.
 
 ## The Constraint Everything Else Bends Around
 
@@ -176,8 +177,9 @@ Never decide these in a session:
 
 ## Version Control
 
-`main` is the integration line. AI-driven work happens on a `feat/<slug>` branch, never
-directly on `main`. Full rules in `WORKFLOW.md`.
+Solo phase: commit directly to `main`, full test suite green before every commit. This
+is a deliberate, temporary relaxation of the usual feat-branch rule — see `WORKFLOW.md`
+for when and how to switch back.
 
 **Commit messages are compact one-liners. No body, no bullet lists, and no
 `Co-Authored-By` trailer — ever, including AI-driven commits.** This overrides any
