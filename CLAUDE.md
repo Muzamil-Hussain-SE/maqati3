@@ -88,7 +88,7 @@ live URLs and stored citations.
 | `attribution` | entry | `confirmed` / `probably` / `not_sure`. `not_sure` is never published, however good the transcript. |
 | `span_role` | line | `scholar_own` / `questioner` / `quoted_other` / `recited_text` / `unclear`. **Only `scholar_own` is quotable.** |
 | `citable` | line | Whether this line's timestamp is human-confirmed. Uncitable lines stay in the index for context but yield no citation. |
-| `content_class` | topic | Which topics stay out of the index entirely, and which return sources only, without synthesis. |
+| `content_class` | topic | `open` / `sources_only` / `excluded`. `excluded` removes a topic from the public site entirely, not just from the search index — see below. |
 | `canonical_id` | entry | Near-duplicates are linked, never deleted. Only the canonical entry is indexed. |
 
 `span_role` exists because of the worst failure mode there is: a scholar saying *"some
@@ -97,6 +97,42 @@ Speaker diarisation does not catch it; the scholar is speaking in both halves.
 
 The query path reads a view that already filters on these. The application database user
 has no `SELECT` on the base tables — so the filter cannot be forgotten.
+
+### What `excluded` Means
+
+Decided 2026-10-25. The three classes are three different public surfaces, not three
+degrees of searchability:
+
+| Class | Browse tree | Entry page and transcript | Retrieval | Synthesis |
+|---|---|---|---|---|
+| `open` | yes | yes | yes | yes |
+| `sources_only` | yes | yes | yes | no |
+| `excluded` | no | no — 404 | no | no |
+
+Three reasons `excluded` goes all the way rather than stopping at the index:
+
+1. **Otherwise it is `sources_only` under another name.** If an excluded topic were
+   still browsable and citable, the only thing left separating the two classes would be
+   synthesis — and that is exactly what `sources_only` already does.
+2. **The harm channel is the citable deep link, not the search box.** The topics this
+   class exists for — jarḥ wa taʿdīl, ḥizbiyya, fitan, takfīr, wulāt al-amr
+   (`docs/RISKS.md`, `docs/ARCHITECTURE.md` "Themen-Sperre") — are dangerous precisely
+   because *"Shaykh X said this about person Y, 4:12"* travels as a link. Hiding that
+   link from search while serving it from the topic tree protects nothing. A browse
+   tree is an invitation.
+3. **It is the reversible direction.** Un-excluding a topic later publishes it.
+   Un-publishing one later does not retract the URLs already in circulation, and that
+   irreversibility is the constraint the whole project bends around.
+
+Exclusion is inherited: a sub-topic of an excluded topic is excluded, and so is an
+entry whose topic is excluded, whatever the entry's own fields say.
+
+`chunks_citable` in `0001_init.sql` already enforces this for retrieval. **The library
+side is not built yet** — `GET /api/v1/topics`, `/entries/{id}` and `/transcript`
+currently serve excluded topics like any other. That gate is Phase 1 work, and it
+belongs in the repository view, not in the route handlers.
+
+*Which* topic gets which class stays a human decision — see below.
 
 ## How Material Flows
 
@@ -170,7 +206,7 @@ target. Everything planned before it is planned against a guess.
 Never decide these in a session:
 
 - Which scholars are included (`reference/scholars.csv` is a draft)
-- `content_class` — which topics stay out of the index
+- `content_class` — which topic gets which class. What the classes *mean* is settled above; which topic falls into which is not, and `reference/topics.yml` does not carry the field yet.
 - Whether an entry is `held_back`
 - Approving any translation
 - Whether living scholars are included, and on what condition
