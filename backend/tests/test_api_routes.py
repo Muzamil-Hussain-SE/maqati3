@@ -590,3 +590,49 @@ def test_entry_names_its_canonical_entry_when_it_is_a_variant() -> None:
     body = client_for(entries=[entry]).get("/api/v1/entries/uthaymin-000422").json()
 
     assert body["canonical_id"] == "uthaymin-000421"
+
+
+# Register rule 2 has two halves. The attribution half was enforced from the start; the
+# Arabic-approval half lived only in register.gates.can_publish, which nothing called.
+# Title, question and hukm are produced by a model in ingest step 7 — before Arabic
+# approval no human has read them, so serving them is serving unreviewed machine output
+# under a scholar's name.
+
+
+def test_entry_is_not_served_while_its_arabic_is_still_awaiting_review() -> None:
+    client = client_for(
+        entries=[
+            make_entry(
+                languages=(EntryLanguageRow(Lang.AR, ReviewState.AWAITING_REVIEW),),
+                title_ar="عنوان من الآلة",
+                hukm="haram",
+            )
+        ]
+    )
+    response = client.get("/api/v1/entries/uthaymin-000421")
+    assert response.status_code == 404
+
+
+def test_entry_is_not_served_when_it_has_no_arabic_row_at_all() -> None:
+    """Missing is not approved. The gate fails closed."""
+    client = client_for(entries=[make_entry(languages=())])
+    assert client.get("/api/v1/entries/uthaymin-000421").status_code == 404
+
+
+def test_scholar_listing_omits_an_entry_whose_arabic_is_not_approved() -> None:
+    client = client_for(
+        pages={
+            "ibn-uthaymin": EntryPage(
+                items=(
+                    make_entry("uthaymin-000001"),
+                    make_entry(
+                        "uthaymin-000002",
+                        languages=(EntryLanguageRow(Lang.AR, ReviewState.IN_PROGRESS),),
+                    ),
+                ),
+                total=2,
+            )
+        }
+    )
+    body = client.get("/api/v1/scholars/ibn-uthaymin/entries").json()
+    assert [item["id"] for item in body["items"]] == ["uthaymin-000001"]
