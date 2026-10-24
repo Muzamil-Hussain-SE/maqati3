@@ -7,6 +7,7 @@ the route layer for these tests to pass, which is the point.
 
 from __future__ import annotations
 
+import html
 from collections.abc import Sequence
 
 from fastapi.testclient import TestClient
@@ -432,6 +433,47 @@ def test_vtt_cue_with_a_stored_end_before_its_start_still_has_a_duration() -> No
     ).text
 
     assert "00:00:09.000 --> 00:00:09.001" in text
+
+
+#: Everything WebVTT gives a meaning to inside cue text, plus an entity that is
+#: already escaped: a renderer that escapes `&` only when it does not look like an
+#: entity would turn this line back into something else.
+UNSAFE_CUE_TEXT = "R&D <b>\u0646\u0639\u0645</b> 5 --> 10 &amp; more"
+
+
+def unsafe_cue_client() -> TestClient:
+    segments = [SegmentRow(0, 0, 3000, SpanRole.SCHOLAR_OWN, True, UNSAFE_CUE_TEXT)]
+    return client_for(
+        entries=[make_entry()], segments={("uthaymin-000421", Lang.AR): segments}
+    )
+
+
+def vtt_body(client: TestClient) -> str:
+    return client.get(
+        "/api/v1/entries/uthaymin-000421/transcript.vtt", params={"lang": "ar"}
+    ).text
+
+
+def test_vtt_escapes_what_webvtt_reads_as_markup_in_cue_text() -> None:
+    # A bare `&` or `<` in the transcript is cue markup to the browser: it eats the
+    # rest of the line looking for a tag or an entity that is not there.
+    text = vtt_body(unsafe_cue_client())
+
+    assert "R&amp;D &lt;b&gt;" in text
+    assert "&amp;amp; more" in text
+
+
+def test_vtt_cue_text_round_trips_back_to_the_transcript_line() -> None:
+    text = vtt_body(unsafe_cue_client())
+
+    cue_text = text.split("\n\n")[1].split("\n", 1)[1]
+    assert html.unescape(cue_text) == UNSAFE_CUE_TEXT
+
+
+def test_vtt_cue_text_cannot_be_mistaken_for_a_timing_line() -> None:
+    text = vtt_body(unsafe_cue_client())
+
+    assert text.count(" --> ") == 1
 
 
 def test_vtt_is_served_as_text_vtt() -> None:
