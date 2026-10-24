@@ -9,7 +9,6 @@ _FORMAT = "[HH:MM:SS] text"
 # below rather than in the pattern, so a wrong value gets a message that names the field.
 _LINE = re.compile(r"^\[(\d{2,}):(\d{2}):(\d{2})\](?:[ \t](.*))?$")
 
-_NOTE = re.compile(r"\[note:(.*?)\]", re.IGNORECASE)
 _UNCLEAR = re.compile(r"\[(?:\.\.\.|…)\]")
 _UNCERTAIN = "[?]"
 _QURAN = re.compile("﴿(.*?)﴾", re.DOTALL)  # ﴿ … ﴾
@@ -83,7 +82,10 @@ def parse_transcript(text: str) -> ParsedTranscript:
             )
             continue
         t_start_ms = (int(hours) * 3600 + int(minutes) * 60 + int(seconds)) * 1000
-        notes, text_raw = _split_notes(body or "")
+        notes, text_raw, note_error = _split_notes(body or "")
+        if note_error is not None:
+            errors.append(LineError(line_no=line_no, raw=line, reason=note_error))
+            continue
         segments.append(
             Segment(
                 idx=len(segments),
@@ -100,12 +102,44 @@ def parse_transcript(text: str) -> ParsedTranscript:
     return ParsedTranscript(segments=tuple(segments), errors=tuple(errors))
 
 
-def _split_notes(body: str) -> tuple[tuple[str, ...], str]:
-    """Return the reviewer notes of ``body`` and the body without them.
+#: Case-folded, because contributors capitalise: "[Note:" and "[NOTE:" mean the same.
+_NOTE_OPEN = "[note:"
+
+
+def _split_notes(body: str) -> tuple[tuple[str, ...], str, str | None]:
+    """Return the reviewer notes of ``body``, the body without them, and any error.
 
     Notes are removed rather than flagged, so that nothing downstream can publish one by
     forgetting to filter: the display text never contains them in the first place.
+
+    Brackets are matched by depth rather than by a non-greedy pattern, because notes
+    routinely contain them. The guide asks contributors to mark an uncertain reading
+    `[?]` and to address the reviewer in `[note: ...]`; doing both at once produces
+    `[note: ... [?]]`, and stopping at the first `]` would leave the tail of the note in
+    the displayed line and swallow the marker along with it.
     """
-    notes = tuple(m.group(1).strip() for m in _NOTE.finditer(body))
-    stripped = _NOTE.sub(" ", body) if notes else body
-    return notes, _SPACES.sub(" ", stripped).strip()
+    notes: list[str] = []
+    out: list[str] = []
+    i = 0
+    while i < len(body):
+        if body[i : i + len(_NOTE_OPEN)].lower() != _NOTE_OPEN:
+            out.append(body[i])
+            i += 1
+            continue
+        depth = 1
+        j = i + len(_NOTE_OPEN)
+        while j < len(body) and depth:
+            if body[j] == "[":
+                depth += 1
+            elif body[j] == "]":
+                depth -= 1
+                if not depth:
+                    break
+            j += 1
+        if depth:
+            # Truncating here would publish part of a remark as the scholar's words.
+            return (), "", "unclosed [note: ...] -- every note must end with ]"
+        notes.append(body[i + len(_NOTE_OPEN) : j].strip())
+        out.append(" ")
+        i = j + 1
+    return tuple(notes), _SPACES.sub(" ", "".join(out)).strip(), None

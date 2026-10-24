@@ -179,3 +179,11 @@ def test_an_unclosed_note_is_an_error_not_a_silent_truncation() -> None:
     assert parsed.segments == ()
     assert len(parsed.errors) == 1
     assert "note" in parsed.errors[0].reason.lower()
+
+
+def test_a_note_is_recognised_whatever_its_capitalisation() -> None:
+    """Contributors capitalise. The marker is a word, not a token."""
+    for opener in ("[note:", "[Note:", "[NOTE:"):
+        parsed = parse_transcript(f"[00:00:01] نص {opener} remark] نص")
+        assert parsed.segments[0].notes == ("remark",), opener
+        assert parsed.segments[0].text_raw == "نص نص", opener
