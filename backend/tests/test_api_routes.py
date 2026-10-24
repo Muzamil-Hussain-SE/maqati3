@@ -530,6 +530,49 @@ def test_topic_carries_its_own_count_and_the_count_including_children() -> None:
     assert body[0]["total_entry_count"] == 31
 
 
+def test_topics_nest_to_a_third_level() -> None:
+    # topics.yml is two-level today, but topic.parent_id is not: a tree builder that
+    # only knows two levels drops a grandchild silently, with no error anywhere.
+    topics = [
+        TopicRow("fiqh", None, "فقه", "Fiqh", ContentClass.OPEN, 1),
+        TopicRow("fiqh.ibadat", "fiqh", "عبادات", "Worship", ContentClass.OPEN, 2),
+        TopicRow("fiqh.ibadat.salah", "fiqh.ibadat", "صلاة", "Prayer", ContentClass.OPEN, 4),
+    ]
+
+    body = client_for(topics=topics).get("/api/v1/topics").json()
+
+    assert [node["id"] for node in body] == ["fiqh"]
+    assert [child["id"] for child in body[0]["children"]] == ["fiqh.ibadat"]
+    assert [
+        grandchild["id"] for grandchild in body[0]["children"][0]["children"]
+    ] == ["fiqh.ibadat.salah"]
+
+
+def test_total_entry_count_sums_through_every_level() -> None:
+    topics = [
+        TopicRow("fiqh", None, "فقه", "Fiqh", ContentClass.OPEN, 1),
+        TopicRow("fiqh.ibadat", "fiqh", "عبادات", "Worship", ContentClass.OPEN, 2),
+        TopicRow("fiqh.ibadat.salah", "fiqh.ibadat", "صلاة", "Prayer", ContentClass.OPEN, 4),
+    ]
+
+    body = client_for(topics=topics).get("/api/v1/topics").json()
+
+    assert body[0]["total_entry_count"] == 7
+
+
+def test_a_parent_cycle_degrades_to_flat_roots_rather_than_an_empty_tree() -> None:
+    # Two rows naming each other have no root, so a root-first builder returns nothing
+    # and the whole library looks empty. Showing them flat loses the nesting only.
+    topics = [
+        TopicRow("a", "b", "أ", "A", ContentClass.OPEN, 1),
+        TopicRow("b", "a", "ب", "B", ContentClass.OPEN, 2),
+    ]
+
+    body = client_for(topics=topics).get("/api/v1/topics").json()
+
+    assert sorted(node["id"] for node in body) == ["a", "b"]
+
+
 def test_topic_reports_its_content_class() -> None:
     topics = [TopicRow("private", None, "خاص", "Private", ContentClass.EXCLUDED, 3)]
 
