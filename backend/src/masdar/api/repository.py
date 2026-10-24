@@ -15,49 +15,16 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date
-from enum import StrEnum
 from typing import Protocol
 
-
-class Lang(StrEnum):
-    AR = "ar"
-    EN = "en"
-    DE = "de"
-
-
-class Visibility(StrEnum):
-    DRAFT = "draft"
-    PUBLIC = "public"
-    HELD_BACK = "held_back"
-
-
-class Attribution(StrEnum):
-    CONFIRMED = "confirmed"
-    PROBABLY = "probably"
-    NOT_SURE = "not_sure"
-
-
-class ReviewState(StrEnum):
-    NOT_STARTED = "not_started"
-    DRAFT_READY = "draft_ready"
-    IN_PROGRESS = "in_progress"
-    AWAITING_REVIEW = "awaiting_review"
-    NEEDS_FIXES = "needs_fixes"
-    APPROVED = "approved"
-
-
-class SpanRole(StrEnum):
-    SCHOLAR_OWN = "scholar_own"
-    QUESTIONER = "questioner"
-    QUOTED_OTHER = "quoted_other"
-    RECITED_TEXT = "recited_text"
-    UNCLEAR = "unclear"
-
-
-class ContentClass(StrEnum):
-    OPEN = "open"
-    SOURCES_ONLY = "sources_only"
-    EXCLUDED = "excluded"
+from masdar.domain import (
+    Attribution,
+    ContentClass,
+    Lang,
+    ReviewState,
+    SpanRole,
+    Visibility,
+)
 
 
 @dataclass(frozen=True, slots=True)

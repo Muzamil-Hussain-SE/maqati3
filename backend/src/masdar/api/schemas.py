@@ -13,16 +13,18 @@ from datetime import date
 from pydantic import BaseModel, Field
 
 from masdar.api.repository import (
-    Attribution,
-    ContentClass,
     EntryRow,
-    Lang,
-    ReviewState,
     ScholarRef,
     ScholarRow,
     SegmentRow,
-    SpanRole,
     TopicRow,
+)
+from masdar.domain import (
+    Attribution,
+    ContentClass,
+    Lang,
+    ReviewState,
+    SpanRole,
 )
 
 

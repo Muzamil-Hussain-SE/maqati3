@@ -6,35 +6,9 @@ purpose. The database is the last line; this is the one that can say *why*.
 """
 
 from dataclasses import dataclass
-from enum import StrEnum
 
+from masdar.domain import Attribution, ContentClass, SpanRole, Visibility
 from masdar.register.states import ReviewState
-
-
-class Attribution(StrEnum):
-    CONFIRMED = "confirmed"
-    PROBABLY = "probably"
-    NOT_SURE = "not_sure"
-
-
-class Visibility(StrEnum):
-    DRAFT = "draft"
-    PUBLIC = "public"
-    HELD_BACK = "held_back"
-
-
-class SpanRole(StrEnum):
-    SCHOLAR_OWN = "scholar_own"
-    QUESTIONER = "questioner"
-    QUOTED_OTHER = "quoted_other"
-    RECITED_TEXT = "recited_text"
-    UNCLEAR = "unclear"
-
-
-class ContentClass(StrEnum):
-    OPEN = "open"
-    SOURCES_ONLY = "sources_only"
-    EXCLUDED = "excluded"
 
 
 @dataclass(frozen=True, slots=True)

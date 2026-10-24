@@ -1,16 +1,10 @@
 """The per-language review state machine."""
 
 from collections.abc import Mapping
-from enum import StrEnum
 
+from masdar.domain import ReviewState
 
-class ReviewState(StrEnum):
-    NOT_STARTED = "not_started"
-    DRAFT_READY = "draft_ready"
-    IN_PROGRESS = "in_progress"
-    AWAITING_REVIEW = "awaiting_review"
-    NEEDS_FIXES = "needs_fixes"
-    APPROVED = "approved"
+__all__ = ["ALLOWED_TRANSITIONS", "InvalidTransition", "ReviewState", "advance"]
 
 
 class InvalidTransition(Exception):

@@ -8,11 +8,8 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 
 from masdar.api.repository import (
-    Attribution,
     EntryRow,
-    Lang,
     LibraryRepository,
-    Visibility,
 )
 from masdar.api.schemas import (
     EntryOut,
@@ -24,6 +21,12 @@ from masdar.api.schemas import (
     build_topic_tree,
     render_webvtt,
 )
+from masdar.domain import (
+    Lang,
+    ReviewState,
+    Visibility,
+)
+from masdar.register.gates import can_publish
 
 router = APIRouter()
 
@@ -56,15 +59,30 @@ def health() -> dict[str, str]:
 Repo = Annotated[LibraryRepository, Depends(get_repository)]
 
 
-def is_published(entry: EntryRow) -> bool:
-    """Both publication conditions, in one place.
+def arabic_state(entry: EntryRow) -> ReviewState:
+    """The Arabic review state, treating a missing row as not started.
 
-    `not_sure` attribution is refused even when the row says public: an unattributed
-    fatwa is exactly the artefact this archive exists to not produce.
+    Fails closed on purpose: an entry with no `ar` row at all has certainly not been
+    reviewed, and the absence must not read as permission.
+    """
+    for language in entry.languages:
+        if language.lang is Lang.AR:
+            return language.state
+    return ReviewState.NOT_STARTED
+
+
+def is_published(entry: EntryRow) -> bool:
+    """The publication conditions, delegated to the single definition of them.
+
+    `register.gates.can_publish` is the one place register rule 2 is written down, and
+    the database's `public_requires_attribution` CHECK mirrors its attribution half.
+    Restating either here would let the three drift apart, which is how a row marked
+    public with unreviewed Arabic ends up served: title, question and hukm are produced
+    by a model during ingest, so before Arabic approval no human has read them.
     """
     return (
         entry.visibility is Visibility.PUBLIC
-        and entry.attribution is not Attribution.NOT_SURE
+        and can_publish(entry.attribution, arabic_state(entry)).allowed
     )
 
 
