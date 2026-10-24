@@ -241,21 +241,43 @@ def render_webvtt(segments: Sequence[SegmentRow]) -> str:
 
 
 def build_topic_tree(topics: Sequence[TopicRow]) -> list[TopicNode]:
-    """Nest the flat topic rows into the two-level browse tree.
+    """Nest the flat topic rows into the browse tree, however deep they nest.
 
-    A topic whose `parent_id` names a topic that is not in the result is kept as a
-    root instead of being dropped: a missing branch is far worse than a flat one,
-    because nothing about it is visible.
+    `reference/topics.yml` is two levels today, but `topic.parent_id` is an
+    unconstrained self-reference, so the shape is decided by the data and not by this
+    function. Two rules keep a malformed parent chain visible instead of silent:
+
+    * A topic whose `parent_id` names a topic that is not in the result is kept as a
+      root. A missing branch is far worse than a flat one, because nothing about it
+      is visible.
+    * A cycle degrades to flat roots. Its members are reachable from no root at all,
+      so a root-first walk alone would return an empty tree and the library would
+      look empty; they are appended without children rather than dropped.
     """
     known = {topic.id for topic in topics}
-    children_of: dict[str, list[TopicNode]] = {}
+    children_of: dict[str, list[TopicRow]] = {}
+    roots: list[TopicRow] = []
     for topic in topics:
-        if topic.parent_id in known:
-            children_of.setdefault(topic.parent_id or "", []).append(
-                TopicNode.of(topic, [])
-            )
-    return [
-        TopicNode.of(topic, children_of.get(topic.id, []))
-        for topic in topics
-        if topic.parent_id not in known
-    ]
+        parent_id = topic.parent_id
+        if parent_id is not None and parent_id != topic.id and parent_id in known:
+            children_of.setdefault(parent_id, []).append(topic)
+        else:
+            roots.append(topic)
+
+    nested: set[str] = set()
+
+    def node(topic: TopicRow, ancestors: frozenset[str]) -> TopicNode:
+        nested.add(topic.id)
+        trail = ancestors | {topic.id}
+        return TopicNode.of(
+            topic,
+            [
+                node(child, trail)
+                for child in children_of.get(topic.id, [])
+                if child.id not in trail
+            ],
+        )
+
+    tree = [node(topic, frozenset()) for topic in roots]
+    tree.extend(TopicNode.of(topic, []) for topic in topics if topic.id not in nested)
+    return tree
