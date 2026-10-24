@@ -403,6 +403,37 @@ def test_vtt_last_cue_without_end_time_gets_a_fixed_tail() -> None:
     assert "00:01:00.000 --> 00:01:03.000" in text
 
 
+def test_vtt_cue_sharing_a_start_with_the_next_one_still_has_a_duration() -> None:
+    # A cue whose end is not after its start is discarded by the browser without any
+    # error, so the line vanishes from the player while GET /transcript still has it.
+    segments = [
+        SegmentRow(0, 5000, None, SpanRole.SCHOLAR_OWN, True, "first"),
+        SegmentRow(1, 5000, 9000, SpanRole.SCHOLAR_OWN, True, "second"),
+    ]
+    client = client_for(
+        entries=[make_entry()], segments={("uthaymin-000421", Lang.AR): segments}
+    )
+
+    text = client.get(
+        "/api/v1/entries/uthaymin-000421/transcript.vtt", params={"lang": "ar"}
+    ).text
+
+    assert "00:00:05.000 --> 00:00:05.001" in text
+
+
+def test_vtt_cue_with_a_stored_end_before_its_start_still_has_a_duration() -> None:
+    segments = [SegmentRow(0, 9000, 4000, SpanRole.SCHOLAR_OWN, True, "reversed")]
+    client = client_for(
+        entries=[make_entry()], segments={("uthaymin-000421", Lang.AR): segments}
+    )
+
+    text = client.get(
+        "/api/v1/entries/uthaymin-000421/transcript.vtt", params={"lang": "ar"}
+    ).text
+
+    assert "00:00:09.000 --> 00:00:09.001" in text
+
+
 def test_vtt_is_served_as_text_vtt() -> None:
     client = vtt_client(entries=[make_entry()])
 
