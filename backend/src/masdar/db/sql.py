@@ -101,6 +101,7 @@ CLAIM_JOB = """
 UPDATE job
    SET state = 'running',
        locked_until = %s,
+       locked_by = %s,
        attempts = attempts + 1
  WHERE id = (
          SELECT id
@@ -112,28 +113,34 @@ UPDATE job
           LIMIT 1
           FOR UPDATE SKIP LOCKED
        )
-RETURNING id, kind, payload, attempts, locked_until
+RETURNING id, kind, payload, attempts, locked_until, locked_by
 """
 
 SELECT_JOB_ATTEMPTS = "SELECT attempts FROM job WHERE id = %s"
 
+# Every finishing statement is guarded by the lease token and RETURNS id, so the caller
+# can tell "done" from "that job is not yours any more".
 MARK_JOB_FAILED = (
-    "UPDATE job SET state = 'failed', locked_until = NULL, last_error = %s WHERE id = %s"
+    "UPDATE job SET state = 'failed', locked_until = NULL, locked_by = NULL, "
+    "last_error = %s WHERE id = %s AND state = 'running' AND locked_by = %s RETURNING id"
 )
 
 RESCHEDULE_JOB = (
-    "UPDATE job SET state = 'pending', locked_until = NULL, run_after = %s, "
-    "last_error = %s WHERE id = %s"
+    "UPDATE job SET state = 'pending', locked_until = NULL, locked_by = NULL, "
+    "run_after = %s, last_error = %s "
+    "WHERE id = %s AND state = 'running' AND locked_by = %s RETURNING id"
 )
 
 MARK_JOB_DONE = (
-    "UPDATE job SET state = 'done', locked_until = NULL, last_error = NULL WHERE id = %s"
+    "UPDATE job SET state = 'done', locked_until = NULL, locked_by = NULL, "
+    "last_error = NULL WHERE id = %s AND state = 'running' AND locked_by = %s RETURNING id"
 )
 
 # RETURNING id, so the caller can tell an extended lease from one that was already
 # reaped and handed to another worker.
 HEARTBEAT_JOB = (
-    "UPDATE job SET locked_until = %s WHERE id = %s AND state = 'running' RETURNING id"
+    "UPDATE job SET locked_until = %s "
+    "WHERE id = %s AND state = 'running' AND locked_by = %s RETURNING id"
 )
 
 REAP_EXPIRED_JOBS = """

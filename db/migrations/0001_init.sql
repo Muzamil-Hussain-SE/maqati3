@@ -222,6 +222,10 @@ CREATE TABLE job (
     attempts     int  NOT NULL DEFAULT 0,
     run_after    timestamptz NOT NULL DEFAULT now(),
     locked_until timestamptz,
+    -- Proof of possession, set when the job is claimed. Finishing a job requires
+    -- presenting it: a worker whose lease lapsed and whose job was handed on must not
+    -- be able to mark that job done or reschedule it out from under its new owner.
+    locked_by    text,
     last_error   text,
     created_at   timestamptz NOT NULL DEFAULT now()
 );
