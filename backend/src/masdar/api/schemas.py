@@ -212,6 +212,13 @@ class EntryPageOut(BaseModel):
 #: dropped from the player.
 DEFAULT_FINAL_CUE_MS = 3000
 
+#: Shortest end-minus-start a cue may have. WebVTT requires the end to be strictly
+#: after the start and browsers drop a cue that is not, silently: the line disappears
+#: from the player while `GET /transcript` still returns it. Two segments can share a
+#: `t_start_ms` after a human correction, and a stored `t_end_ms` can sit before its
+#: start, so the renderer clamps instead of trusting the row.
+MIN_CUE_MS = 1
+
 
 def format_vtt_timestamp(milliseconds: int) -> str:
     """`HH:MM:SS.mmm`, the only timestamp form WebVTT accepts with hours."""
@@ -233,6 +240,7 @@ def render_webvtt(segments: Sequence[SegmentRow]) -> str:
                 if following is not None
                 else segment.t_start_ms + DEFAULT_FINAL_CUE_MS
             )
+        end_ms = max(end_ms, segment.t_start_ms + MIN_CUE_MS)
         text = "\n".join(line.strip() for line in segment.text.splitlines() if line.strip())
         start = format_vtt_timestamp(segment.t_start_ms)
         stop = format_vtt_timestamp(end_ms)
