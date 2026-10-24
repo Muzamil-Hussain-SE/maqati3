@@ -24,10 +24,30 @@ ALLOWED_TRANSITIONS: Mapping[ReviewState, frozenset[ReviewState]] = {
 }
 
 
-def advance(current: ReviewState, target: ReviewState) -> ReviewState:
-    if target not in ALLOWED_TRANSITIONS[current]:
-        raise InvalidTransition(f"{current.value} -> {target.value} is not an allowed move")
-    return target
+def _as_state(state: ReviewState | str, role: str) -> ReviewState:
+    """Coerce a value from outside into a member, or refuse the move.
+
+    A state read back from Postgres arrives as a plain string. It compares equal to the
+    member but hashes and behaves differently enough that an uncoerced one walked
+    straight through the matrix below and came back out as the caller's return value —
+    a `str` where everything downstream compares with `is`. Anything that is not a
+    state at all becomes `InvalidTransition` too: a caller is told to handle exactly
+    one error from this module, so `ValueError` and `KeyError` must not escape it.
+    """
+    try:
+        return ReviewState(state)
+    except ValueError as exc:
+        raise InvalidTransition(f"{role} state {state!r} is not a review state") from exc
+
+
+def advance(current: ReviewState | str, target: ReviewState | str) -> ReviewState:
+    source = _as_state(current, "current")
+    destination = _as_state(target, "target")
+    if destination not in ALLOWED_TRANSITIONS[source]:
+        raise InvalidTransition(
+            f"{source.value} -> {destination.value} is not an allowed move"
+        )
+    return destination
 
 
 def can_start_translation(ar_state: ReviewState) -> bool:
