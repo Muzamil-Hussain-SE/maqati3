@@ -7,6 +7,7 @@ serialised without its scholar and its attribution.
 
 from __future__ import annotations
 
+import html
 from collections.abc import Iterable, Sequence
 from datetime import date
 
@@ -228,6 +229,18 @@ def format_vtt_timestamp(milliseconds: int) -> str:
     return f"{hours:02d}:{mins:02d}:{secs:02d}.{millis:03d}"
 
 
+def escape_cue_text(line: str) -> str:
+    """Escape the three characters WebVTT reads as cue markup.
+
+    Inside cue text `&` starts an entity and `<` starts a span tag, so a bare `&` in a
+    transcript makes the browser swallow the rest of the line looking for a `;` that
+    never comes. Escaping `>` as well keeps a line containing `-->` from being read as
+    a timing line. Quotes are left alone: they are not special here, and the display
+    text is Arabic that should stay readable in the file.
+    """
+    return html.escape(line, quote=False)
+
+
 def render_webvtt(segments: Sequence[SegmentRow]) -> str:
     """Serialise transcript lines as WebVTT for the player's track element."""
     cues: list[str] = []
@@ -241,7 +254,11 @@ def render_webvtt(segments: Sequence[SegmentRow]) -> str:
                 else segment.t_start_ms + DEFAULT_FINAL_CUE_MS
             )
         end_ms = max(end_ms, segment.t_start_ms + MIN_CUE_MS)
-        text = "\n".join(line.strip() for line in segment.text.splitlines() if line.strip())
+        text = "\n".join(
+            escape_cue_text(line.strip())
+            for line in segment.text.splitlines()
+            if line.strip()
+        )
         start = format_vtt_timestamp(segment.t_start_ms)
         stop = format_vtt_timestamp(end_ms)
         cues.append(f"{start} --> {stop}\n{text}")
