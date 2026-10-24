@@ -32,6 +32,7 @@ from masdar.db.queue import (
 )
 
 NOW = datetime(2026, 10, 20, 12, 0, 0, tzinfo=UTC)
+LEASE_END = NOW + timedelta(seconds=600)
 
 
 class FakeExecutor:
@@ -338,3 +339,41 @@ def test_integration_a_second_worker_skips_the_row_the_first_one_locked() -> Non
 
             assert first is not None
             assert second is None
+
+
+# A long transcription outlives its lease, reap_expired hands the job to a second worker,
+# and the first one then finishes. Updating by id alone, the straggler overwrites a job
+# another worker is actively running: it marks done work that is still in flight, or
+# reschedules a job that is already running, which runs the same audio through ASR twice.
+# Finishing requires proving you still hold the lease.
+
+
+def test_claim_records_the_token_that_proves_ownership() -> None:
+    executor = FakeExecutor([[(7, "asr", {}, 1, LEASE_END)]])
+    job = claim(executor, ["asr"], 600, now=NOW, token="tok-a")
+    assert job is not None
+    assert job.token == "tok-a"
+    assert "tok-a" in executor.statements[0][1]
+
+
+def test_complete_refuses_when_the_lease_was_handed_to_another_worker() -> None:
+    executor = FakeExecutor([[]])  # the guarded UPDATE matches no row
+    job = Job(id=7, kind="asr", payload={}, attempts=2, locked_until=LEASE_END, token="tok-a")
+    assert complete(executor, job) is False
+    sql, params = executor.statements[0]
+    assert "locked_by" in sql
+    assert "tok-a" in params
+
+
+def test_complete_reports_success_while_the_lease_is_still_held() -> None:
+    executor = FakeExecutor([[(7,)]])
+    job = Job(id=7, kind="asr", payload={}, attempts=1, locked_until=LEASE_END, token="tok-a")
+    assert complete(executor, job) is True
+
+
+def test_fail_refuses_to_reschedule_a_job_it_no_longer_holds() -> None:
+    executor = FakeExecutor([[(2,)], []])  # attempts read, then the guarded UPDATE misses
+    job = Job(id=7, kind="asr", payload={}, attempts=2, locked_until=LEASE_END, token="tok-a")
+    from masdar.db import queue
+
+    assert isinstance(fail(executor, job, "boom", now=NOW), queue.LeaseLost)
