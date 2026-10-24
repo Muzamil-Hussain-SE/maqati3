@@ -142,3 +142,40 @@ def test_parse_transcript_computes_quran_spans_after_removing_a_note() -> None:
     segment = parse_transcript("[00:00:23] [note: verify] ﴿ وأرجلكم ﴾").segments[0]
 
     assert segment.text_raw[slice(*segment.quran_spans[0])] == "﴿ وأرجلكم ﴾"
+
+
+# The validator tells contributors to mark an uncertain reading with [?], and the guide
+# tells them to put remarks in [note: ...]. Following both at once — a note that mentions
+# a [?] — used to cut the note at the first closing bracket, leaving its tail in the
+# displayed line and swallowing the marker, so the validator went quiet about it too.
+
+
+def test_a_note_containing_brackets_is_removed_whole() -> None:
+    parsed = parse_transcript(
+        "[00:01:02] قال الشيخ [note: unsure whether he said X or Y [?]] والله أعلم"
+    )
+    segment = parsed.segments[0]
+    assert segment.notes == ("unsure whether he said X or Y [?]",)
+    assert segment.text_raw == "قال الشيخ والله أعلم"
+    assert "]" not in segment.text_raw
+
+
+def test_an_uncertain_marker_inside_a_note_does_not_flag_the_line() -> None:
+    """The [?] belongs to the reviewer's remark, not to the transcript text."""
+    parsed = parse_transcript("[00:01:02] قال الشيخ [note: he may mean X [?]] تمام")
+    assert parsed.segments[0].has_uncertain_reading is False
+
+
+def test_an_uncertain_marker_outside_a_note_still_flags_the_line() -> None:
+    parsed = parse_transcript("[00:01:02] قال الشيخ [?] [note: see [Bukhari 1]] تمام")
+    segment = parsed.segments[0]
+    assert segment.has_uncertain_reading is True
+    assert segment.notes == ("see [Bukhari 1]",)
+    assert segment.text_raw == "قال الشيخ [?] تمام"
+
+
+def test_an_unclosed_note_is_an_error_not_a_silent_truncation() -> None:
+    parsed = parse_transcript("[00:01:02] قال الشيخ [note: he may mean X")
+    assert parsed.segments == ()
+    assert len(parsed.errors) == 1
+    assert "note" in parsed.errors[0].reason.lower()
