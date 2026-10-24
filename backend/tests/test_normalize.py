@@ -73,3 +73,33 @@ def test_normalize_ar_strips_a_fully_vocalised_quran_verse_to_bare_letters() -> 
 
 def test_normalize_ar_keeps_latin_text_in_a_mixed_line() -> None:
     assert normalize_ar("الشيخ ibn Uthaymin ١٤٢١") == "الشيخ ibn Uthaymin 1421"
+
+
+# Letterforms that only a Persian, Urdu or Kurdish keyboard produces. They are the
+# Arabic letter to the eye and to the reader, and web-copied Arabic is full of them;
+# left unfolded they make dedup read one fatwa as two.
+
+
+def test_normalize_ar_folds_farsi_yeh_and_yeh_barree_to_ya() -> None:
+    assert normalize_ar("یےۓ") == "ييي"
+
+
+def test_normalize_ar_folds_keheh_to_arabic_kaf() -> None:
+    assert normalize_ar("ک") == "ك"
+
+
+def test_normalize_ar_folds_persian_and_urdu_heh_forms_to_ha() -> None:
+    assert normalize_ar("ھہۂۀە") == "ههههه"
+
+
+def test_normalize_ar_folds_noon_ghunna_to_noon() -> None:
+    assert normalize_ar("ں") == "ن"
+
+
+def test_normalize_ar_makes_a_persian_keyboard_line_match_an_arabic_one() -> None:
+    assert normalize_ar("ہل یجوز المسح علی الخفین") == normalize_ar("هل يجوز المسح على الخفين")
+
+
+def test_normalize_ar_is_idempotent_on_persian_letterforms() -> None:
+    once = normalize_ar("ہل یجوز المسح علی الخفین")
+    assert normalize_ar(once) == once

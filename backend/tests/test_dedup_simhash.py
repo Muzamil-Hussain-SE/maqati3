@@ -16,6 +16,7 @@ from masdar.dedup.simhash import (
     simhash,
     to_signed_64,
 )
+from masdar.text.normalize import normalize_ar
 
 # Fatwa A: wiping over socks.
 FATWA_A = (
@@ -60,6 +61,19 @@ FATWA_A_ASR = (
 
 def test_asr_noise_of_about_ten_percent_still_reads_as_a_near_duplicate() -> None:
     assert is_near_duplicate(simhash(FATWA_A), simhash(FATWA_A_ASR)) is True
+
+
+def test_the_same_fatwa_typed_on_a_persian_keyboard_is_a_near_duplicate() -> None:
+    # Farsi yeh and keheh instead of the Arabic letters: the same words, different
+    # codepoints. Collapsing them is normalisation's job, not this module's -- but if
+    # it does not happen, layer 4 files one fatwa twice and never says why.
+    persian_keyboard = (
+        FATWA_A.replace("ك", "ک").replace("ي", "ی").replace("ه", "ہ")
+    )
+
+    assert is_near_duplicate(
+        simhash(normalize_ar(FATWA_A)), simhash(normalize_ar(persian_keyboard))
+    ) is True
 
 
 def test_identical_text_has_distance_zero() -> None:
