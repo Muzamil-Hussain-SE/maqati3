@@ -59,5 +59,11 @@ class LocalUploadStore:
             raise ValueError(f"refusing to delete {path}: outside the staging directory")
         resolved.unlink(missing_ok=True)
 
+    def locate(self, path: Path) -> Path | None:
+        resolved = path.resolve()
+        if resolved.parent != self._root.resolve() or not resolved.is_file():
+            return None
+        return resolved
+
 
 __all__ = ["DEFAULT_MAX_BYTES", "LocalUploadStore"]

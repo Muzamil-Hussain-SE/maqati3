@@ -93,6 +93,8 @@ UPDATE submission
 RETURNING sha256
 """
 
+_STAGED_PATH = "SELECT staged_path FROM submission WHERE sha256 = %s"
+
 _DROP = """
 DELETE FROM submission
  WHERE sha256 = %s AND state = 'awaiting_decision'
@@ -208,6 +210,10 @@ class PgSubmissions:
         """Delete a pending upload. Returns its staged file for the caller to remove, or
         None if there was nothing pending -- so a file is never deleted twice."""
         rows = self._executor.fetchall(_DROP, (sha256,))
+        return Path(str(rows[0][0])) if rows else None
+
+    def staged_path(self, sha256: str) -> Path | None:
+        rows = self._executor.fetchall(_STAGED_PATH, (sha256,))
         return Path(str(rows[0][0])) if rows else None
 
 

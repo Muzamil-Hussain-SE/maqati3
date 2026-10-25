@@ -357,16 +357,18 @@ def test_losing_the_race_to_an_identical_upload_is_a_rejection() -> None:
     assert store.discarded == [Path("/staging/clip.mp4")]
 
 
-def test_a_match_on_a_pending_upload_says_so_without_naming_it() -> None:
+def test_a_match_on_a_pending_upload_is_marked_pending_and_names_no_entry() -> None:
+    # Another brother's upload is not an entry and carries no scholar or title yet. It
+    # is previewable (see preview_id below): unlike a withheld entry, its existence says
+    # nothing about a scholar, and comparing by ear is the point of showing it.
     client = client_for(index=FakeIndex({submission_key("otherhash"): ITEMS_90S}))
 
-    response = upload(client)
+    candidate = upload(client).json()["candidates"][0]
 
-    candidate = response.json()["candidates"][0]
     assert candidate["pending"] is True
     assert candidate["public"] is False
     assert candidate["entry_id"] is None
-    assert "otherhash" not in response.text
+    assert candidate["scholar"] is None
 
 
 def test_a_public_entry_match_is_not_marked_pending() -> None:

@@ -4,9 +4,11 @@ answer -- no other logic lives here."""
 from __future__ import annotations
 
 import hmac
+import mimetypes
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Response, UploadFile
+from fastapi.responses import FileResponse
 
 from masdar.api.repository import (
     EntryRow,
@@ -27,6 +29,7 @@ from masdar.api.schemas import (
     render_webvtt,
 )
 from masdar.api.uploads import (
+    SUBMISSION_PREFIX,
     InvalidMetadata,
     KnownHashes,
     SubmissionMetadata,
@@ -121,21 +124,34 @@ def get_upload_key() -> str | None:
 UPLOAD_KEY_REQUIRED = "upload_key_required"
 
 
+def _check_key(expected: str | None, given: str | None) -> None:
+    if expected is None:
+        return
+    if given is None or not hmac.compare_digest(given.encode(), expected.encode()):
+        raise HTTPException(status_code=401, detail=UPLOAD_KEY_REQUIRED)
+
+
 def require_upload_key(
     expected: Annotated[str | None, Depends(get_upload_key)],
     x_upload_key: Annotated[str | None, Header()] = None,
 ) -> None:
     """The unlisted link hides the page, not the API behind it. Its key is the credential:
     without it anyone who found the endpoint could fill the disk."""
-    if expected is None:
-        return
-    if x_upload_key is None or not hmac.compare_digest(
-        x_upload_key.encode(), expected.encode()
-    ):
-        raise HTTPException(status_code=401, detail=UPLOAD_KEY_REQUIRED)
+    _check_key(expected, x_upload_key)
+
+
+def require_upload_key_or_query(
+    expected: Annotated[str | None, Depends(get_upload_key)],
+    x_upload_key: Annotated[str | None, Header()] = None,
+    k: Annotated[str | None, Query()] = None,
+) -> None:
+    """Same key, also accepted as ?k= -- only for media, because a <video src> cannot
+    send a header."""
+    _check_key(expected, x_upload_key if x_upload_key is not None else k)
 
 
 Keyed = Depends(require_upload_key)
+KeyedMedia = Depends(require_upload_key_or_query)
 
 #: The upload was decided already, or never triaged. One answer for both, like
 #: ENTRY_NOT_FOUND: a stranger probing hashes learns nothing from the difference.
@@ -261,7 +277,9 @@ def visible_match(
     such -- the contributor should know another brother sent it in -- but not named.
     """
     if is_submission_key(key):
-        return UploadMatchOut.pending_upload(overlap_ms=overlap_ms)
+        return UploadMatchOut.pending_upload(
+            preview_id=key.removeprefix(SUBMISSION_PREFIX), overlap_ms=overlap_ms
+        )
     entry = repository.entry(key)
     published = entry if entry is not None and is_published(entry) else None
     return UploadMatchOut.of(published, overlap_ms=overlap_ms)
@@ -323,7 +341,7 @@ def check_upload(
         return UploadCheckOut(
             sha256=staged.sha256,
             status="rejected",
-            duplicate_of=UploadMatchOut.pending_upload(),
+            duplicate_of=UploadMatchOut.pending_upload(preview_id=staged.sha256),
         )
     if candidates:
         return UploadCheckOut(
@@ -369,3 +387,18 @@ def decide_upload(
     if not kept:
         raise HTTPException(status_code=409, detail=NOT_AWAITING_DECISION)
     return UploadDecisionOut(sha256=sha256, status="kept")
+
+
+@router.get("/api/v1/uploads/{sha256}/media", dependencies=[KeyedMedia])
+def upload_media(sha256: str, store: Store, submissions: Pending) -> FileResponse:
+    """A recorded upload's file, for the contributor comparing a candidate by ear.
+
+    FileResponse answers byte ranges, which is what lets a browser seek in a video. The
+    path comes back out of the database; the store decides whether it is a staged file.
+    """
+    recorded = submissions.staged_path(sha256)
+    path = store.locate(recorded) if recorded is not None else None
+    if path is None:
+        raise HTTPException(status_code=404, detail="media_not_found")
+    media_type, _ = mimetypes.guess_type(path.name)
+    return FileResponse(path, media_type=media_type or "application/octet-stream")

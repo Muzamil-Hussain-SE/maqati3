@@ -322,6 +322,11 @@ class UploadMatchOut(BaseModel):
 
     public: bool
     pending: bool = False
+    #: For a pending upload: what to ask `/api/v1/uploads/{preview_id}/media` for, so
+    #: the contributor can listen to the other brother's file and compare.
+    preview_id: str | None = None
+    #: For a public entry: where it was published originally, to open and compare.
+    source_url: str | None = None
     entry_id: str | None = None
     scholar: ScholarOut | None = None
     title_ar: str | None = None
@@ -332,8 +337,10 @@ class UploadMatchOut(BaseModel):
     overlap_ms: int | None = None
 
     @classmethod
-    def pending_upload(cls, overlap_ms: int | None = None) -> UploadMatchOut:
-        return cls(public=False, pending=True, overlap_ms=overlap_ms)
+    def pending_upload(
+        cls, preview_id: str | None = None, overlap_ms: int | None = None
+    ) -> UploadMatchOut:
+        return cls(public=False, pending=True, preview_id=preview_id, overlap_ms=overlap_ms)
 
     @classmethod
     def of(cls, entry: EntryRow | None, overlap_ms: int | None = None) -> UploadMatchOut:
@@ -347,6 +354,7 @@ class UploadMatchOut(BaseModel):
             title_ar=entry.title_ar,
             title_en=entry.title_en,
             duration_sec=entry.duration_sec,
+            source_url=entry.source_url,
             overlap_ms=overlap_ms,
         )
 

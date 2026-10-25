@@ -56,6 +56,14 @@ class UploadStore(Protocol):
         """Remove a staged file nobody is going to keep."""
         ...
 
+    def locate(self, path: Path) -> Path | None:
+        """The file at ``path`` if it is a staged upload that still exists, else None.
+
+        The only gate between a path read back from the database and a file served to a
+        browser: anything outside the staging area is never handed out.
+        """
+        ...
+
 
 class KnownHashes(Protocol):
     """The corpus' `entry.sha256` values, for dedup layer 2."""
@@ -117,6 +125,10 @@ class Submissions(Protocol):
 
     def drop(self, sha256: str) -> Path | None:
         """Delete a pending upload; its staged file, or None if nothing was pending."""
+        ...
+
+    def staged_path(self, sha256: str) -> Path | None:
+        """Where a recorded submission's file was staged, or None if there is none."""
         ...
 
 

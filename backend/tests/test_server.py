@@ -114,9 +114,15 @@ def test_a_contributor_uploads_keeps_and_is_protected_from_duplicates(
     again = upload(client, media["original"])
     assert again["status"] == "rejected"
     assert again["duplicate_of"] == {
-        "public": False, "pending": True, "entry_id": None, "scholar": None,
-        "title_ar": None, "title_en": None, "duration_sec": None, "overlap_ms": None,
+        "public": False, "pending": True, "preview_id": first["sha256"], "source_url": None,
+        "entry_id": None, "scholar": None, "title_ar": None, "title_en": None,
+        "duration_sec": None, "overlap_ms": None,
     }
+
+    # The page can play the pending original for comparison -- with the link's key.
+    preview = client.get(f"/api/v1/uploads/{first['sha256']}/media?k={UPLOAD_KEY}")
+    assert preview.status_code == 200
+    assert preview.content == media["original"].read_bytes()
 
     # 3. A forwarded, re-encoded copy is not byte-identical, so it becomes a candidate
     #    pointing at the pending upload -- and the contributor drops it.
