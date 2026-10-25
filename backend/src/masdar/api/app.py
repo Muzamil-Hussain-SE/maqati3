@@ -14,6 +14,7 @@ from masdar.api.routes import (
     get_known_hashes,
     get_repository,
     get_submissions,
+    get_upload_key,
     get_upload_store,
     router,
 )
@@ -31,6 +32,7 @@ def create_app(
     hashes: KnownHashes | None = None,
     submissions: Submissions | None = None,
     lifespan: Callable[[FastAPI], AbstractAsyncContextManager[None]] | None = None,
+    upload_key: str | None = None,
 ) -> FastAPI:
     """Build the API around one implementation of each boundary.
 
@@ -52,4 +54,6 @@ def create_app(
         app.dependency_overrides[get_known_hashes] = lambda: hashes
     if submissions is not None:
         app.dependency_overrides[get_submissions] = lambda: submissions
+    if upload_key is not None:
+        app.dependency_overrides[get_upload_key] = lambda: upload_key
     return app

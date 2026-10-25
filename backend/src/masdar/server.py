@@ -31,6 +31,10 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     database_url: str
+    #: The credential the unlisted upload link carries (in its #fragment). Long and
+    #: random -- `python -c "import secrets; print(secrets.token_urlsafe(24))"`.
+    #: Changing it revokes every link handed out with the old one.
+    upload_key: str = ""
     staging_dir: Path = Path("/var/lib/masdar/staging")
     max_upload_bytes: int = DEFAULT_MAX_BYTES
     fpcalc_path: str = "fpcalc"
@@ -42,6 +46,9 @@ class Settings(BaseSettings):
 def build_app(settings: Settings, *, connect_kwargs: Mapping[str, Any] | None = None) -> FastAPI:
     """The app a deployment serves. ``connect_kwargs`` reach every pooled connection --
     the end-to-end test uses them to pin a throwaway schema."""
+    if not settings.upload_key.strip():
+        # Fail closed: an upload API without its key is an open file drop.
+        raise ValueError("UPLOAD_KEY is not set; refusing to serve an open upload API")
     pool: ConnectionPool[Any] = ConnectionPool(
         settings.database_url,
         open=False,
@@ -67,6 +74,7 @@ def build_app(settings: Settings, *, connect_kwargs: Mapping[str, Any] | None = 
         hashes=PgKnownHashes(executor),
         submissions=PgSubmissions(executor),
         lifespan=lifespan,
+        upload_key=settings.upload_key,
     )
 
 

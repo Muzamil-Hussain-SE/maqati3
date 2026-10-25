@@ -3,9 +3,10 @@ answer -- no other logic lives here."""
 
 from __future__ import annotations
 
+import hmac
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, UploadFile
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Response, UploadFile
 
 from masdar.api.repository import (
     EntryRow,
@@ -109,6 +110,32 @@ def get_submissions() -> Submissions:
 
 Hashes = Annotated[KnownHashes, Depends(get_known_hashes)]
 Pending = Annotated[Submissions, Depends(get_submissions)]
+
+
+def get_upload_key() -> str | None:
+    """The key the unlisted upload link carries. None only where `create_app` was built
+    without one -- tests; `server.build_app` refuses to start without it."""
+    return None
+
+
+UPLOAD_KEY_REQUIRED = "upload_key_required"
+
+
+def require_upload_key(
+    expected: Annotated[str | None, Depends(get_upload_key)],
+    x_upload_key: Annotated[str | None, Header()] = None,
+) -> None:
+    """The unlisted link hides the page, not the API behind it. Its key is the credential:
+    without it anyone who found the endpoint could fill the disk."""
+    if expected is None:
+        return
+    if x_upload_key is None or not hmac.compare_digest(
+        x_upload_key.encode(), expected.encode()
+    ):
+        raise HTTPException(status_code=401, detail=UPLOAD_KEY_REQUIRED)
+
+
+Keyed = Depends(require_upload_key)
 
 #: The upload was decided already, or never triaged. One answer for both, like
 #: ENTRY_NOT_FOUND: a stranger probing hashes learns nothing from the difference.
@@ -240,7 +267,7 @@ def visible_match(
     return UploadMatchOut.of(published, overlap_ms=overlap_ms)
 
 
-@router.post("/api/v1/uploads")
+@router.post("/api/v1/uploads", dependencies=[Keyed])
 def check_upload(
     file: UploadFile,
     repository: Repo,
@@ -310,7 +337,7 @@ def check_upload(
     return UploadCheckOut(sha256=staged.sha256, status="new")
 
 
-@router.post("/api/v1/uploads/{sha256}/decision")
+@router.post("/api/v1/uploads/{sha256}/decision", dependencies=[Keyed])
 def decide_upload(
     sha256: str, decision: UploadDecisionIn, store: Store, submissions: Pending
 ) -> UploadDecisionOut:
