@@ -259,7 +259,11 @@ def test_integration_the_pooled_executor_lets_only_one_of_two_racing_uploads_win
     with migrated_schema():
         url = os.environ["DATABASE_URL"]
         pool = ConnectionPool(
-            url, open=True, min_size=2, max_size=4, kwargs={"options": f"-c search_path={SCHEMA},public"}
+            url,
+            open=True,
+            min_size=2,
+            max_size=4,
+            kwargs={"options": f"-c search_path={SCHEMA},public"},
         )
         try:
             submissions = PgSubmissions(PooledExecutor(pool))
