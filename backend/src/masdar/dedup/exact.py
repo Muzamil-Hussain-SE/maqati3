@@ -12,6 +12,24 @@ from __future__ import annotations
 
 import hashlib
 from collections.abc import Mapping
+from pathlib import Path
+
+#: Phone videos run to gigabytes; this keeps a hash's memory use flat regardless of
+#: file size, which is what makes it cheap enough to run synchronously on every upload.
+_DEFAULT_CHUNK_SIZE = 1024 * 1024
+
+
+def sha256_of_file(path: Path, chunk_size: int = _DEFAULT_CHUNK_SIZE) -> str:
+    """The hex digest of a file on disk, read in fixed-size chunks.
+
+    Never ``path.read_bytes()`` here: an uploaded video can be larger than is sane to
+    hold in memory at once, and the digest is identical either way.
+    """
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(chunk_size), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def sha256_hex(data: bytes) -> str:
@@ -36,4 +54,4 @@ def find_exact_duplicate(digest: str, known: Mapping[str, str]) -> str | None:
     return known.get(digest)
 
 
-__all__ = ["find_exact_duplicate", "sha256_hex"]
+__all__ = ["find_exact_duplicate", "sha256_hex", "sha256_of_file"]
