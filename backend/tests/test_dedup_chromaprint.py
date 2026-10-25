@@ -26,9 +26,15 @@ def ffmpeg(*args: str) -> None:
     subprocess.run(["ffmpeg", "-v", "error", "-y", *args], check=True)
 
 
-def tone(path: Path, f1: int, f2: int, seconds: int = 60) -> Path:
+def tone(path: Path, f1: int, f2: int, r1: float, r2: float, seconds: int = 60) -> Path:
+    """Two tones gliding around f1 and f2 at r1 and r2 rad/s.
+
+    Chromaprint encodes how the pitch-class profile *changes*, so two signals with the
+    same glide rates are a transposed copy of one movement to it, and match. Different
+    content has to differ in time, not only in pitch -- as unrelated speech always does.
+    """
     expr = (
-        f"0.6*sin(2*PI*({f1}+150*sin(t*1.3))*t)+0.4*sin(2*PI*({f2}+300*sin(t*0.7))*t)"
+        f"0.6*sin(2*PI*({f1}+150*sin(t*{r1}))*t)+0.4*sin(2*PI*({f2}+300*sin(t*{r2}))*t)"
     )
     ffmpeg("-f", "lavfi", "-i", f"aevalsrc='{expr}':s=22050:d={seconds}", str(path))
     return path
@@ -37,8 +43,8 @@ def tone(path: Path, f1: int, f2: int, seconds: int = 60) -> Path:
 @pytest.fixture(scope="module")
 def media(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Path]:
     d = tmp_path_factory.mktemp("media")
-    original = tone(d / "original.wav", 220, 660)
-    other = tone(d / "other.wav", 330, 500)
+    original = tone(d / "original.wav", 220, 660, 1.3, 0.7)
+    other = tone(d / "other.wav", 330, 500, 0.45, 1.9)
     reencoded = d / "forwarded.m4a"
     ffmpeg("-i", str(original), "-c:a", "aac", "-b:a", "64k", str(reencoded))
     phone = d / "phone.mp4"
