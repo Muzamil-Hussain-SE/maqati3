@@ -37,12 +37,24 @@ from masdar.dedup.fingerprint import (
     index_keys,
 )
 
-# A registered submission is no longer pending: its entry carries the hash and the
-# windows from then on, and counting both would report one recording as two matches.
-_PENDING = "state <> 'registered'"
+#: How long an upload may wait for its contributor's decision. Someone who uploads and
+#: then closes the browser leaves it undecided; past this it stops blocking copies of
+#: itself -- which would otherwise be refused as "already uploaded" while never
+#: reaching an admin -- and `sweep` removes it.
+DECISION_TTL_HOURS = 24
+
+# What counts as pending for dedup: kept uploads, and undecided ones still within their
+# time. A registered submission is no longer pending -- its entry carries the hash and
+# the fingerprint from then on, and counting both would report one recording twice.
+def _pending(alias: str = "") -> str:
+    column = f"{alias}." if alias else ""
+    return (
+        f"({column}state = 'kept' OR ({column}state = 'awaiting_decision' "
+        f"AND {column}received_at > now() - interval '{DECISION_TTL_HOURS} hours'))"
+    )
 
 _KNOWN_HASHES = f"""
-SELECT sha256, %s || sha256 FROM submission WHERE {_PENDING}
+SELECT sha256, %s || sha256 FROM submission WHERE {_pending()}
 UNION ALL
 SELECT sha256, id FROM entry WHERE sha256 IS NOT NULL
 """
@@ -57,7 +69,7 @@ SELECT owner FROM (
     UNION ALL
     SELECT %s || k.sha256
       FROM submission_fingerprint_key k JOIN submission s USING (sha256)
-     WHERE k.key = ANY(%s::bigint[]) AND s.{_PENDING}
+     WHERE k.key = ANY(%s::bigint[]) AND {_pending("s")}
 ) shared
 GROUP BY owner
 HAVING count(*) >= %s
@@ -84,16 +96,24 @@ _RECORD_KEYS = (
     "SELECT unnest(%s::bigint[]), %s"
 )
 
-_KEEP = """
+_KEEP = f"""
 UPDATE submission
    SET state = 'kept', decided_at = now(),
        contributor = %s, scholar_id = %s, scholar_other = %s, topic_id = %s,
        claimed_attribution = %s, source_note = %s, note = %s
  WHERE sha256 = %s AND state = 'awaiting_decision'
+   AND received_at > now() - interval '{DECISION_TTL_HOURS} hours'
 RETURNING sha256
 """
 
 _STAGED_PATH = "SELECT staged_path FROM submission WHERE sha256 = %s"
+
+_SWEEP = f"""
+DELETE FROM submission
+ WHERE state = 'awaiting_decision'
+   AND received_at <= now() - interval '{DECISION_TTL_HOURS} hours'
+RETURNING staged_path
+"""
 
 _DROP = """
 DELETE FROM submission
@@ -212,12 +232,18 @@ class PgSubmissions:
         rows = self._executor.fetchall(_DROP, (sha256,))
         return Path(str(rows[0][0])) if rows else None
 
+    def sweep(self) -> list[Path]:
+        """Delete every upload left undecided past `DECISION_TTL_HOURS`, with its
+        fingerprint, and return the staged files for the caller to remove."""
+        return [Path(str(row[0])) for row in self._executor.fetchall(_SWEEP)]
+
     def staged_path(self, sha256: str) -> Path | None:
         rows = self._executor.fetchall(_STAGED_PATH, (sha256,))
         return Path(str(rows[0][0])) if rows else None
 
 
 __all__ = [
+    "DECISION_TTL_HOURS",
     "SUBMISSION_PREFIX",
     "PgFingerprintIndex",
     "PgKnownHashes",
