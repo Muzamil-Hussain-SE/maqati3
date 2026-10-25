@@ -10,10 +10,27 @@ are the dedup modules' own Protocols and are not restated here.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import BinaryIO, Protocol
+
+from masdar.dedup.fingerprint import WindowFingerprint
+from masdar.domain import Attribution
+
+#: Entries and pending submissions share one match-key namespace. An entry is its own
+#: id ('uthaymin-000421', which never contains a colon); a submission is this prefix
+#: plus its sha256. The fingerprint index and the known-hashes lookup speak it, the
+#: route reads it.
+SUBMISSION_PREFIX = "submission:"
+
+
+def submission_key(sha256: str) -> str:
+    return SUBMISSION_PREFIX + sha256
+
+
+def is_submission_key(key: str) -> bool:
+    return key.startswith(SUBMISSION_PREFIX)
 
 
 @dataclass(frozen=True, slots=True)
@@ -55,4 +72,60 @@ class KnownHashes(Protocol):
         ...
 
 
-__all__ = ["KnownHashes", "StagedUpload", "UploadStore"]
+class InvalidMetadata(ValueError):
+    """A kept upload names a scholar or topic the archive does not know."""
+
+
+@dataclass(frozen=True, slots=True)
+class SubmissionMetadata:
+    """What the contributor said about a kept upload. Claims, not facts: attribution on
+    the entry is still the admin's call, however sure the contributor was."""
+
+    contributor: str | None
+    scholar_id: str | None
+    scholar_other: str | None
+    topic_id: str | None
+    claimed_attribution: Attribution
+    source_note: str | None
+    note: str | None
+
+
+class Submissions(Protocol):
+    """Triaged uploads waiting for the contributor's decision, then for an admin."""
+
+    def record(
+        self,
+        *,
+        sha256: str,
+        original_name: str,
+        staged_path: Path,
+        duration_ms: int,
+        fingerprints: Sequence[WindowFingerprint],
+        candidate_keys: Sequence[str],
+    ) -> bool:
+        """Store a triaged upload. False if identical bytes were recorded first."""
+        ...
+
+    def keep(self, sha256: str, metadata: SubmissionMetadata) -> bool:
+        """Send a pending upload in. False if it is not awaiting a decision.
+
+        Raises `InvalidMetadata` for a scholar or topic id the archive does not know.
+        """
+        ...
+
+    def drop(self, sha256: str) -> Path | None:
+        """Delete a pending upload; its staged file, or None if nothing was pending."""
+        ...
+
+
+__all__ = [
+    "SUBMISSION_PREFIX",
+    "InvalidMetadata",
+    "KnownHashes",
+    "StagedUpload",
+    "SubmissionMetadata",
+    "Submissions",
+    "UploadStore",
+    "is_submission_key",
+    "submission_key",
+]

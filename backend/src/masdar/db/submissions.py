@@ -13,36 +13,19 @@ The two kinds of match share one string namespace. An entry is its own id
 from __future__ import annotations
 
 from collections.abc import Sequence
-from dataclasses import dataclass
 from pathlib import Path
 
+from psycopg import errors
+
+from masdar.api.uploads import (
+    SUBMISSION_PREFIX,
+    InvalidMetadata,
+    SubmissionMetadata,
+    is_submission_key,
+    submission_key,
+)
 from masdar.db.sql import Executor
 from masdar.dedup.fingerprint import WindowFingerprint
-from masdar.domain import Attribution
-
-SUBMISSION_PREFIX = "submission:"
-
-
-def submission_key(sha256: str) -> str:
-    return SUBMISSION_PREFIX + sha256
-
-
-def is_submission_key(key: str) -> bool:
-    return key.startswith(SUBMISSION_PREFIX)
-
-
-@dataclass(frozen=True, slots=True)
-class SubmissionMetadata:
-    """What the contributor said about a kept upload. Claims, not facts."""
-
-    contributor: str | None
-    scholar_id: str | None
-    scholar_other: str | None
-    topic_id: str | None
-    claimed_attribution: Attribution
-    source_note: str | None
-    note: str | None
-
 
 # A registered submission is no longer pending: its entry carries the hash and the
 # windows from then on, and counting both would report one recording as two matches.
@@ -169,19 +152,22 @@ class PgSubmissions:
 
     def keep(self, sha256: str, metadata: SubmissionMetadata) -> bool:
         """Send a pending upload in. False if it was already decided, or never existed."""
-        rows = self._executor.fetchall(
-            _KEEP,
-            (
-                metadata.contributor,
-                metadata.scholar_id,
-                metadata.scholar_other,
-                metadata.topic_id,
-                metadata.claimed_attribution.value,
-                metadata.source_note,
-                metadata.note,
-                sha256,
-            ),
-        )
+        try:
+            rows = self._executor.fetchall(
+                _KEEP,
+                (
+                    metadata.contributor,
+                    metadata.scholar_id,
+                    metadata.scholar_other,
+                    metadata.topic_id,
+                    metadata.claimed_attribution.value,
+                    metadata.source_note,
+                    metadata.note,
+                    sha256,
+                ),
+            )
+        except errors.ForeignKeyViolation as exc:
+            raise InvalidMetadata("unknown scholar or topic id") from exc
         return bool(rows)
 
     def drop(self, sha256: str) -> Path | None:

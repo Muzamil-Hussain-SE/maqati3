@@ -12,7 +12,7 @@ from collections.abc import Iterable, Sequence
 from datetime import date
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from masdar.api.repository import (
     EntryRow,
@@ -316,10 +316,12 @@ class UploadMatchOut(BaseModel):
     more than the public API does. For a match that is not public every identifying
     field is None and `public` is False: the contributor still learns that the
     recording is very likely on file already -- so a real duplicate is not waved
-    through -- but not which entry, scholar or title it is.
+    through -- but not which entry, scholar or title it is. `pending` says the match
+    is another contributor's upload that no admin has registered yet.
     """
 
     public: bool
+    pending: bool = False
     entry_id: str | None = None
     scholar: ScholarOut | None = None
     title_ar: str | None = None
@@ -328,6 +330,10 @@ class UploadMatchOut(BaseModel):
     #: How many consecutive fingerprint windows lined up. None for an exact duplicate,
     #: where the bytes are identical and there is no strength to report.
     run_length: int | None = None
+
+    @classmethod
+    def pending_upload(cls, run_length: int | None = None) -> UploadMatchOut:
+        return cls(public=False, pending=True, run_length=run_length)
 
     @classmethod
     def of(cls, entry: EntryRow | None, run_length: int | None = None) -> UploadMatchOut:
@@ -357,3 +363,47 @@ class UploadCheckOut(BaseModel):
     status: Literal["rejected", "candidates", "new"]
     duplicate_of: UploadMatchOut | None = None
     candidates: list[UploadMatchOut] = Field(default_factory=list)
+
+
+class UploadDecisionIn(BaseModel):
+    """The contributor's decision about one triaged upload.
+
+    Dropping needs nothing else. Keeping needs the two things the form has always
+    required because nobody can reconstruct them later: whose words these are, and how
+    sure the contributor is of it. Free text is bounded -- the page is an unlisted
+    link, not a login.
+    """
+
+    keep: bool
+    contributor: str | None = Field(default=None, max_length=200)
+    scholar_id: str | None = Field(default=None, max_length=200)
+    scholar_other: str | None = Field(default=None, max_length=200)
+    topic_id: str | None = Field(default=None, max_length=200)
+    claimed_attribution: Attribution | None = None
+    source_note: str | None = Field(default=None, max_length=1000)
+    note: str | None = Field(default=None, max_length=2000)
+
+    @field_validator(
+        "contributor", "scholar_id", "scholar_other", "topic_id", "source_note", "note",
+        mode="before",
+    )
+    @classmethod
+    def _blank_is_absent(cls, value: object) -> object:
+        if isinstance(value, str):
+            return value.strip() or None
+        return value
+
+    @model_validator(mode="after")
+    def _kept_says_whose_and_how_sure(self) -> UploadDecisionIn:
+        if not self.keep:
+            return self
+        if self.scholar_id is None and self.scholar_other is None:
+            raise ValueError("a kept upload needs scholar_id or scholar_other")
+        if self.claimed_attribution is None:
+            raise ValueError("a kept upload needs claimed_attribution")
+        return self
+
+
+class UploadDecisionOut(BaseModel):
+    sha256: str
+    status: Literal["kept", "dropped"]

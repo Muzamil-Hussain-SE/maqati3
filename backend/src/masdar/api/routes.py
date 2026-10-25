@@ -18,12 +18,21 @@ from masdar.api.schemas import (
     TopicNode,
     TranscriptOut,
     UploadCheckOut,
+    UploadDecisionIn,
+    UploadDecisionOut,
     UploadMatchOut,
     approved_languages,
     build_topic_tree,
     render_webvtt,
 )
-from masdar.api.uploads import KnownHashes, UploadStore
+from masdar.api.uploads import (
+    InvalidMetadata,
+    KnownHashes,
+    SubmissionMetadata,
+    Submissions,
+    UploadStore,
+    is_submission_key,
+)
 from masdar.dedup.fingerprint import FingerprintExtractor
 from masdar.dedup.triage import (
     ExactDuplicate,
@@ -92,7 +101,19 @@ def get_known_hashes() -> KnownHashes:
 Store = Annotated[UploadStore, Depends(get_upload_store)]
 Extractor = Annotated[FingerprintExtractor, Depends(get_extractor)]
 Index = Annotated[FingerprintIndex, Depends(get_fingerprint_index)]
+def get_submissions() -> Submissions:
+    """Dependency placeholder; `create_app` overrides it when uploads are wired."""
+    raise NotImplementedError("submissions were not provided to create_app")
+
+
 Hashes = Annotated[KnownHashes, Depends(get_known_hashes)]
+Pending = Annotated[Submissions, Depends(get_submissions)]
+
+#: The upload was decided already, or never triaged. One answer for both, like
+#: ENTRY_NOT_FOUND: a stranger probing hashes learns nothing from the difference.
+NOT_AWAITING_DECISION = "not_awaiting_decision"
+
+UNKNOWN_SCHOLAR_OR_TOPIC = "unknown_scholar_or_topic"
 
 
 def arabic_state(entry: EntryRow) -> ReviewState:
@@ -196,14 +217,20 @@ def list_topics(repository: Repo) -> list[TopicNode]:
 # --------------------------------------------------------------- bulk upload
 
 
-def visible_match(entry_id: str, repository: LibraryRepository) -> EntryRow | None:
-    """The matched entry if the public may see it, else None.
+def visible_match(
+    key: str, repository: LibraryRepository, run_length: int | None = None
+) -> UploadMatchOut:
+    """What the uploader may see of a match, by its match key.
 
     Same gate as every other route: the upload page is an unlisted link, not a login,
-    so it reveals nothing the public API would not.
+    so it reveals nothing the public API would not. A pending upload is reported as
+    such -- the contributor should know another brother sent it in -- but not named.
     """
-    entry = repository.entry(entry_id)
-    return entry if entry is not None and is_published(entry) else None
+    if is_submission_key(key):
+        return UploadMatchOut.pending_upload(run_length=run_length)
+    entry = repository.entry(key)
+    published = entry if entry is not None and is_published(entry) else None
+    return UploadMatchOut.of(published, run_length=run_length)
 
 
 @router.post("/api/v1/uploads")
@@ -214,6 +241,7 @@ def check_upload(
     extractor: Extractor,
     index: Index,
     hashes: Hashes,
+    submissions: Pending,
 ) -> UploadCheckOut:
     """Stage one uploaded file and say what it is: rejected, candidates, or new.
 
@@ -221,7 +249,8 @@ def check_upload(
     a sync route in its threadpool instead of stalling the event loop for everyone
     else uploading at the same time.
     """
-    staged = store.stage(file.filename or "upload", file.file)
+    name = file.filename or "upload"
+    staged = store.stage(name, file.file)
     result = triage_upload(
         staged.path,
         staged.duration_ms,
@@ -236,18 +265,68 @@ def check_upload(
         return UploadCheckOut(
             sha256=staged.sha256,
             status="rejected",
-            duplicate_of=UploadMatchOut.of(visible_match(result.entry_id, repository)),
+            duplicate_of=visible_match(result.entry_id, repository),
         )
-    if isinstance(result, FingerprintCandidates):
+
+    candidates = result.candidates if isinstance(result, FingerprintCandidates) else []
+    recorded = submissions.record(
+        sha256=staged.sha256,
+        original_name=name,
+        staged_path=staged.path,
+        duration_ms=staged.duration_ms,
+        fingerprints=result.fingerprints,
+        candidate_keys=[candidate.entry_id for candidate in candidates],
+    )
+    if not recorded:
+        # Identical bytes arrived from someone else between our hash check and our
+        # insert. Theirs won; this copy is the duplicate.
+        store.discard(staged.path)
+        return UploadCheckOut(
+            sha256=staged.sha256,
+            status="rejected",
+            duplicate_of=UploadMatchOut.pending_upload(),
+        )
+    if candidates:
         return UploadCheckOut(
             sha256=staged.sha256,
             status="candidates",
             candidates=[
-                UploadMatchOut.of(
-                    visible_match(candidate.entry_id, repository),
-                    run_length=candidate.match.run_length,
-                )
-                for candidate in result.candidates
+                visible_match(c.entry_id, repository, run_length=c.match.run_length)
+                for c in candidates
             ],
         )
     return UploadCheckOut(sha256=staged.sha256, status="new")
+
+
+@router.post("/api/v1/uploads/{sha256}/decision")
+def decide_upload(
+    sha256: str, decision: UploadDecisionIn, store: Store, submissions: Pending
+) -> UploadDecisionOut:
+    """The contributor keeps a triaged upload, with what they know about it, or drops it."""
+    if not decision.keep:
+        path = submissions.drop(sha256)
+        if path is None:
+            raise HTTPException(status_code=409, detail=NOT_AWAITING_DECISION)
+        store.discard(path)
+        return UploadDecisionOut(sha256=sha256, status="dropped")
+
+    if decision.claimed_attribution is None:
+        # UploadDecisionIn already refuses this; checked again because it is the one
+        # field an admin cannot reconstruct, and an assert would vanish under -O.
+        raise HTTPException(status_code=422, detail="claimed_attribution is required")
+    metadata = SubmissionMetadata(
+        contributor=decision.contributor,
+        scholar_id=decision.scholar_id,
+        scholar_other=decision.scholar_other,
+        topic_id=decision.topic_id,
+        claimed_attribution=decision.claimed_attribution,
+        source_note=decision.source_note,
+        note=decision.note,
+    )
+    try:
+        kept = submissions.keep(sha256, metadata)
+    except InvalidMetadata as exc:
+        raise HTTPException(status_code=422, detail=UNKNOWN_SCHOLAR_OR_TOPIC) from exc
+    if not kept:
+        raise HTTPException(status_code=409, detail=NOT_AWAITING_DECISION)
+    return UploadDecisionOut(sha256=sha256, status="kept")

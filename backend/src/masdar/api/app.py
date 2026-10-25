@@ -10,10 +10,11 @@ from masdar.api.routes import (
     get_fingerprint_index,
     get_known_hashes,
     get_repository,
+    get_submissions,
     get_upload_store,
     router,
 )
-from masdar.api.uploads import KnownHashes, UploadStore
+from masdar.api.uploads import KnownHashes, Submissions, UploadStore
 from masdar.dedup.fingerprint import FingerprintExtractor
 from masdar.dedup.triage import FingerprintIndex
 
@@ -25,6 +26,7 @@ def create_app(
     extractor: FingerprintExtractor | None = None,
     index: FingerprintIndex | None = None,
     hashes: KnownHashes | None = None,
+    submissions: Submissions | None = None,
 ) -> FastAPI:
     """Build the API around one implementation of each boundary.
 
@@ -44,4 +46,6 @@ def create_app(
         app.dependency_overrides[get_fingerprint_index] = lambda: index
     if hashes is not None:
         app.dependency_overrides[get_known_hashes] = lambda: hashes
+    if submissions is not None:
+        app.dependency_overrides[get_submissions] = lambda: submissions
     return app
