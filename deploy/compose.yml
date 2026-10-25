@@ -1,0 +1,58 @@
+# The whole upload stack on one machine: `docker compose up -d` in this directory.
+# Needs a .env next to this file -- see docs/BETRIEB.md.
+name: masdar
+
+services:
+  db:
+    # Pinned: `latest` moved to Postgres 18, which cannot read a 17 data directory, and
+    # an unpinned image would make that jump on an ordinary `docker compose pull`.
+    image: paradedb/paradedb:0.26.3-pg17
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: masdar
+      POSTGRES_USER: masdar
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U masdar -d masdar"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  api:
+    build:
+      context: ..
+      dockerfile: backend/Dockerfile
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://masdar:${POSTGRES_PASSWORD}@db:5432/masdar
+      UPLOAD_KEY: ${UPLOAD_KEY:?set UPLOAD_KEY in .env}
+    volumes:
+      # The only copy of every upload until an admin registers it. Back this up.
+      - staging:/var/lib/masdar
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    build: ../frontend
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    environment:
+      DOMAIN: ${DOMAIN:?set DOMAIN in .env}
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+    depends_on: [api, web]
+
+volumes:
+  pgdata:
+  staging:
+  caddy_data:

@@ -1,0 +1,17 @@
+# DOMAIN is the server's domain, e.g. archiv.example.org. Caddy fetches and renews the
+# HTTPS certificate on its own. For a local test, DOMAIN=:80 serves plain HTTP.
+{$DOMAIN} {
+	encode zstd gzip
+
+	handle /api/* {
+		# A long phone video, at least MAX_UPLOAD_BYTES.
+		request_body {
+			max_size 2GB
+		}
+		reverse_proxy api:8000
+	}
+
+	handle {
+		reverse_proxy web:3000
+	}
+}
