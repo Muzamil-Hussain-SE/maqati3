@@ -158,3 +158,21 @@ def test_the_server_refuses_to_build_without_an_upload_key(tmp_path: Path) -> No
         build_app(
             Settings(database_url="postgresql://unused", staging_dir=tmp_path, upload_key="")
         )
+
+
+def test_the_sweep_removes_abandoned_uploads_and_their_files(
+    client: TestClient, media: dict[str, Path], tmp_path: Path
+) -> None:
+    import psycopg
+
+    from masdar.server import sweep_abandoned
+
+    upload(client, media["original"])  # uploaded, never decided
+    with psycopg.connect(os.environ["DATABASE_URL"], autocommit=True) as connection:
+        connection.execute(f"SET search_path TO {SCHEMA}, public")
+        connection.execute("UPDATE submission SET received_at = now() - interval '2 days'")
+
+    assert sweep_abandoned(client.app) == 1  # type: ignore[arg-type]
+    assert list((tmp_path / "staging").iterdir()) == []
+    # The same clip can now be uploaded afresh instead of being refused as a duplicate.
+    assert upload(client, media["original"])["status"] == "new"

@@ -5,6 +5,9 @@ this module only decides what is plugged into it.
 
 from __future__ import annotations
 
+import asyncio
+import contextlib
+import logging
 from collections.abc import AsyncIterator, Mapping
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -23,6 +26,30 @@ from masdar.staging import DEFAULT_MAX_BYTES, LocalUploadStore
 
 #: The repository root, for the defaults below: backend/src/masdar/server.py -> repo.
 _REPO = Path(__file__).resolve().parents[3]
+
+#: How often the running server clears uploads nobody decided on.
+SWEEP_INTERVAL_S = 30 * 60
+
+log = logging.getLogger("masdar")
+
+
+def sweep_staging(submissions: PgSubmissions, store: LocalUploadStore) -> int:
+    """Delete uploads left undecided past their time, and their staged files."""
+    paths = submissions.sweep()
+    for path in paths:
+        try:
+            store.discard(path)
+        except ValueError:
+            # A path outside staging came out of the database. Never delete it; say so.
+            log.warning("swept submission pointed outside staging: %s", path)
+    if paths:
+        log.info("swept %d abandoned upload(s)", len(paths))
+    return len(paths)
+
+
+def sweep_abandoned(app: FastAPI) -> int:
+    """`sweep_staging` with the running app's own store and submissions."""
+    return sweep_staging(app.state.submissions, app.state.store)
 
 
 class Settings(BaseSettings):
@@ -57,25 +84,42 @@ def build_app(settings: Settings, *, connect_kwargs: Mapping[str, Any] | None = 
         kwargs=dict(connect_kwargs or {}),
     )
 
+    async def sweep_forever(app: FastAPI) -> None:
+        while True:
+            try:
+                await asyncio.to_thread(sweep_abandoned, app)
+            except Exception:  # a failed sweep must not take the server down
+                log.exception("sweeping abandoned uploads failed")
+            await asyncio.sleep(SWEEP_INTERVAL_S)
+
     @asynccontextmanager
-    async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         pool.open(wait=True)
+        sweeper = asyncio.create_task(sweep_forever(app))
         try:
             yield
         finally:
+            sweeper.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await sweeper
             pool.close()
 
     executor = PooledExecutor(pool)
-    return create_app(
+    store = LocalUploadStore(settings.staging_dir, max_bytes=settings.max_upload_bytes)
+    submissions = PgSubmissions(executor)
+    app = create_app(
         PgLibraryRepository(executor),
-        store=LocalUploadStore(settings.staging_dir, max_bytes=settings.max_upload_bytes),
+        store=store,
         extractor=ChromaprintExtractor(fpcalc=settings.fpcalc_path),
         index=PgFingerprintIndex(executor),
         hashes=PgKnownHashes(executor),
-        submissions=PgSubmissions(executor),
+        submissions=submissions,
         lifespan=lifespan,
         upload_key=settings.upload_key,
     )
+    app.state.store = store
+    app.state.submissions = submissions
+    return app
 
 
-__all__ = ["Settings", "build_app"]
+__all__ = ["Settings", "build_app", "sweep_abandoned", "sweep_staging"]
