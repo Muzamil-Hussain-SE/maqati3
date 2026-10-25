@@ -127,7 +127,7 @@ Three reasons `excluded` goes all the way rather than stopping at the index:
 Exclusion is inherited: a sub-topic of an excluded topic is excluded, and so is an
 entry whose topic is excluded, whatever the entry's own fields say.
 
-`chunks_citable` in `0001_init.sql` already enforces this for retrieval. **The library
+`segment_citable` in `0001_init.sql` already enforces this for retrieval. **The library
 side is not built yet** — `GET /api/v1/topics`, `/entries/{id}` and `/transcript`
 currently serve excluded topics like any other. That gate is Phase 1 work, and it
 belongs in the repository view, not in the route handlers.
