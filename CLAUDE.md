@@ -136,11 +136,24 @@ belongs in the repository view, not in the route handlers.
 
 ## How Material Flows
 
-1. Contributor submits a link (preferred) or a file — one Google Form, ~1 minute
-2. Instant duplicate check: source URL / video ID, duration
+There are two intake paths. **Links** go through the Google Form, unchanged from the
+original design. **Bulk file uploads** — decided 2026-10-25, the common case in
+practice: most contributors have phone-forwarded videos with no source URL at all, often
+10–20 at once — go through a dedicated upload page instead, because only that path can
+run SHA-256 and fingerprint checks *while the contributor is still there* and let them
+listen to a candidate match and decide themselves. A form cannot talk to the backend
+mid-submission. Access is an unlisted link, like the two Drive links, no login. Detail
+and the reasoning for reversing the original no-upload-form decision: `docs/ARCHITECTURE.md`
+("Revidiert 2026-10-25").
+
+1. Contributor submits a link (Form) or a batch of files (upload page)
+2. Instant duplicate check: source URL / video ID, duration (links) or SHA-256 then
+   Chromaprint fingerprint against the corpus, with the contributor deciding on a
+   fingerprint candidate before anything is stored (files)
 3. Fetch (`yt-dlp`) and normalise (`ffmpeg` → Opus); original to cold storage
 4. Audio fingerprint (Chromaprint, **overlapping 30s windows** — a single
-   whole-file print misses the common case: same fatwa, different intro)
+   whole-file print misses the common case: same fatwa, different intro). For a file
+   upload this already happened, live, in step 2.
 5. ASR → Arabic transcript with timestamps
 6. Text dedup (SimHash over normalised Arabic) — catches the same content in a
    different recording, which audio fingerprinting never will
