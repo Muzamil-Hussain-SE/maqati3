@@ -9,7 +9,26 @@ import unicodedata
 
 # Tashkeel (U+064B-U+0652), superscript alef (U+0670), the hamza/madda marks
 # (U+0653-U+0655), and tatweel (U+0640). All deleted outright.
-_REMOVE = dict.fromkeys([*range(0x064B, 0x0656), 0x0670, 0x0640], None)
+#
+# U+0656-U+065F, U+0610-U+061A and U+06D6-U+06ED are Qur'anic annotation: small
+# reading marks, honorific signs (sallallahu alayhi wa sallam, radi allahu anhu), and
+# the small waw/yeh that mark a letter as silent in recitation. None of them is ever
+# typed in plain Arabic, so a verse in mushaf spelling only normalises to the same
+# form as the same words typed plainly if these are stripped too -- and a quoted verse
+# is the single most common text a fatwa corpus has to match. U+06E5/U+06E6 fall in
+# that same Qur'anic-annotation range but are letters (category Lm) rather than
+# combining marks, so they need listing by hand rather than by Unicode category.
+_REMOVE = dict.fromkeys(
+    [
+        *range(0x064B, 0x0656),
+        0x0670,
+        0x0640,
+        *range(0x0656, 0x0660),
+        *range(0x0610, 0x061B),
+        *range(0x06D6, 0x06EE),
+    ],
+    None,
+)
 
 _FOLD = str.maketrans(
     {
@@ -35,6 +54,7 @@ _FOLD = str.maketrans(
         "ۂ": "ه",  # heh goal with hamza above
         "ۀ": "ه",  # heh with yeh above
         "ە": "ه",  # ae
+        "ۃ": "ه",  # teh marbuta goal (urdu/sindhi/pashto ta marbuta)
         "ں": "ن",  # noon ghunna
         **{chr(0x0660 + d): str(d) for d in range(10)},  # arabic-indic digits
         **{chr(0x06F0 + d): str(d) for d in range(10)},  # extended arabic-indic digits
@@ -54,15 +74,17 @@ def normalize_ar(s: str) -> str:
 
     1. NFKC
     2. remove tashkeel U+064B-U+0652, superscript alef U+0670, marks U+0653-U+0655
-    3. remove tatweel U+0640
-    4. alef variants أ إ آ ٱ -> ا
-    5. alef maqsura ى -> ي
-    6. ta marbuta ة -> ه
-    7. hamza carriers ؤ -> و, ئ -> ي
-    8. Persian, Urdu and Kurdish letterforms: ی ے ۓ -> ي, ک -> ك,
-       ھ ہ ۂ ۀ ە -> ه, ں -> ن
-    9. arabic-indic digits ٠-٩ and ۰-۹ -> 0-9
-    10. collapse whitespace runs to a single space, then trim
+    3. remove Qur'anic annotation: small reading marks U+0656-U+065F, honorific signs
+       U+0610-U+061A, small high/low signs and the small waw/yeh U+06D6-U+06ED
+    4. remove tatweel U+0640
+    5. alef variants أ إ آ ٱ -> ا
+    6. alef maqsura ى -> ي
+    7. ta marbuta ة -> ه
+    8. hamza carriers ؤ -> و, ئ -> ي
+    9. Persian, Urdu and Kurdish letterforms: ی ے ۓ -> ي, ک -> ك,
+       ھ ہ ۂ ۀ ە ۃ -> ه, ں -> ن
+    10. arabic-indic digits ٠-٩ and ۰-۹ -> 0-9
+    11. collapse whitespace runs to a single space, then trim
 
     Deterministic and idempotent: ``normalize_ar(normalize_ar(x)) == normalize_ar(x)``.
 
