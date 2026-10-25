@@ -9,7 +9,8 @@ WORKFLOW.md: these are genuinely external systems, not the logic under test.
 from __future__ import annotations
 
 import io
-from collections.abc import Sequence
+import random
+from collections.abc import Sequence, Set
 from pathlib import Path
 from typing import BinaryIO
 
@@ -32,7 +33,7 @@ from masdar.api.uploads import (
     SubmissionMetadata,
     submission_key,
 )
-from masdar.dedup.fingerprint import WindowFingerprint
+from masdar.dedup.fingerprint import ITEM_MS, Fingerprint, UnreadableMedia, index_keys
 
 UTHAYMIN = ScholarRef(id="ibn-uthaymin", name_ar="ابن عثيمين", name_en="Ibn ʿUthaymīn")
 
@@ -55,8 +56,9 @@ HELD_BACK = EntryRow(
     title_ar="عنوان محجوب",
 )
 
-#: What the fake extractor produces for a 90 s upload: one window every 15 s.
-WINDOWS_90S = [f"audio@{ms}".encode() for ms in (0, 15_000, 30_000, 45_000, 60_000)]
+#: What the fake extractor produces for every upload: 90 s of one recording.
+_RNG = random.Random(1)
+ITEMS_90S = [_RNG.getrandbits(32) for _ in range(round(90_000 / ITEM_MS))]
 
 
 class FakeRepository:
@@ -71,42 +73,41 @@ class FakeRepository:
 
 
 class FakeStore:
-    """Stands in for disk + ffprobe: hands back a fixed staged file whatever bytes
-    arrived, so the route's logic is tested without real media."""
+    """Stands in for disk: hands back a fixed staged file whatever bytes arrived, so
+    the route's logic is tested without real media."""
 
-    def __init__(self, sha256: str = "freshhash", duration_ms: int = 90_000) -> None:
+    def __init__(self, sha256: str = "freshhash") -> None:
         self.sha256 = sha256
-        self.duration_ms = duration_ms
         self.staged: list[str] = []
         self.discarded: list[Path] = []
 
     def stage(self, filename: str, stream: BinaryIO) -> StagedUpload:
         self.staged.append(filename)
-        return StagedUpload(
-            path=Path(f"/staging/{filename}"),
-            sha256=self.sha256,
-            duration_ms=self.duration_ms,
-        )
+        return StagedUpload(path=Path(f"/staging/{filename}"), sha256=self.sha256)
 
     def discard(self, path: Path) -> None:
         self.discarded.append(path)
 
 
 class FakeExtractor:
-    def extract(self, path: Path, offset_ms: int, duration_ms: int) -> bytes:
-        return f"audio@{offset_ms}".encode()
+    def __init__(self, unreadable: bool = False) -> None:
+        self.unreadable = unreadable
+
+    def extract(self, path: Path) -> Fingerprint:
+        if self.unreadable:
+            raise UnreadableMedia("Could not find any audio stream in the file")
+        return Fingerprint(items=tuple(ITEMS_90S), duration_ms=90_000)
 
 
 class FakeIndex:
-    def __init__(self, windows_by_entry: dict[str, list[bytes]] | None = None) -> None:
-        self._windows_by_entry = windows_by_entry or {}
+    def __init__(self, items_by_owner: dict[str, list[int]] | None = None) -> None:
+        self._items = items_by_owner or {}
 
-    def entries_sharing_a_window(self, fingerprints: Sequence[bytes]) -> set[str]:
-        wanted = set(fingerprints)
-        return {e for e, windows in self._windows_by_entry.items() if wanted & set(windows)}
+    def candidates(self, keys: Set[int]) -> set[str]:
+        return {owner for owner, items in self._items.items() if keys & index_keys(items)}
 
-    def windows_of(self, entry_id: str) -> Sequence[bytes]:
-        return self._windows_by_entry[entry_id]
+    def items_of(self, key: str) -> Sequence[int]:
+        return self._items[key]
 
 
 class FakeSubmissions:
@@ -124,8 +125,7 @@ class FakeSubmissions:
         sha256: str,
         original_name: str,
         staged_path: Path,
-        duration_ms: int,
-        fingerprints: Sequence[WindowFingerprint],
+        fingerprint: Fingerprint,
         candidate_keys: Sequence[str],
     ) -> bool:
         if self.lose_race:
@@ -133,7 +133,7 @@ class FakeSubmissions:
         self.recorded[sha256] = {
             "original_name": original_name,
             "staged_path": staged_path,
-            "windows": len(fingerprints),
+            "duration_ms": fingerprint.duration_ms,
             "candidate_keys": list(candidate_keys),
         }
         return True
@@ -167,11 +167,12 @@ def client_for(
     hashes: FakeHashes | None = None,
     index: FakeIndex | None = None,
     submissions: FakeSubmissions | None = None,
+    extractor: FakeExtractor | None = None,
 ) -> TestClient:
     app = create_app(
         FakeRepository(entries),  # type: ignore[arg-type]
         store=store or FakeStore(),
-        extractor=FakeExtractor(),
+        extractor=extractor or FakeExtractor(),
         index=index or FakeIndex(),
         hashes=hashes or FakeHashes(),
         submissions=submissions or FakeSubmissions(),
@@ -230,7 +231,7 @@ def test_a_new_file_is_kept_in_staging() -> None:
 
 
 def test_a_file_sharing_a_long_run_with_an_entry_lists_it_as_a_candidate() -> None:
-    client = client_for(entries=[EXISTING], index=FakeIndex({"uthaymin-000421": WINDOWS_90S}))
+    client = client_for(entries=[EXISTING], index=FakeIndex({"uthaymin-000421": ITEMS_90S}))
 
     body = upload(client).json()
 
@@ -243,7 +244,7 @@ def test_a_file_sharing_a_long_run_with_an_entry_lists_it_as_a_candidate() -> No
 def test_a_candidate_file_is_kept_so_the_contributor_can_still_choose_it() -> None:
     store = FakeStore()
     client = client_for(
-        entries=[EXISTING], store=store, index=FakeIndex({"uthaymin-000421": WINDOWS_90S})
+        entries=[EXISTING], store=store, index=FakeIndex({"uthaymin-000421": ITEMS_90S})
     )
 
     upload(client)
@@ -256,7 +257,7 @@ def test_a_candidate_that_is_not_public_is_reported_without_revealing_it() -> No
     # more than the public API does -- and that a withheld entry exists is itself
     # information about a scholar. The contributor still learns there is a likely
     # match, so a real duplicate is not waved through; just not which entry it is.
-    client = client_for(entries=[HELD_BACK], index=FakeIndex({"uthaymin-000777": WINDOWS_90S}))
+    client = client_for(entries=[HELD_BACK], index=FakeIndex({"uthaymin-000777": ITEMS_90S}))
 
     response = upload(client)
 
@@ -294,7 +295,7 @@ def test_uploading_without_a_file_is_a_client_error() -> None:
 # --------------------------------------------------------------- recording
 
 
-def test_a_new_upload_is_recorded_with_its_windows() -> None:
+def test_a_new_upload_is_recorded_with_its_duration() -> None:
     submissions = FakeSubmissions()
 
     upload(client_for(submissions=submissions), filename="whatsapp.mp4")
@@ -302,7 +303,7 @@ def test_a_new_upload_is_recorded_with_its_windows() -> None:
     assert submissions.recorded["freshhash"] == {
         "original_name": "whatsapp.mp4",
         "staged_path": Path("/staging/whatsapp.mp4"),
-        "windows": 5,
+        "duration_ms": 90_000,
         "candidate_keys": [],
     }
 
@@ -313,7 +314,7 @@ def test_a_candidate_upload_is_recorded_with_the_keys_it_matched() -> None:
     submissions = FakeSubmissions()
     client = client_for(
         entries=[EXISTING],
-        index=FakeIndex({"uthaymin-000421": WINDOWS_90S}),
+        index=FakeIndex({"uthaymin-000421": ITEMS_90S}),
         submissions=submissions,
     )
 
@@ -349,7 +350,7 @@ def test_losing_the_race_to_an_identical_upload_is_a_rejection() -> None:
 
 
 def test_a_match_on_a_pending_upload_says_so_without_naming_it() -> None:
-    client = client_for(index=FakeIndex({submission_key("otherhash"): WINDOWS_90S}))
+    client = client_for(index=FakeIndex({submission_key("otherhash"): ITEMS_90S}))
 
     response = upload(client)
 
@@ -361,7 +362,7 @@ def test_a_match_on_a_pending_upload_says_so_without_naming_it() -> None:
 
 
 def test_a_public_entry_match_is_not_marked_pending() -> None:
-    client = client_for(entries=[EXISTING], index=FakeIndex({"uthaymin-000421": WINDOWS_90S}))
+    client = client_for(entries=[EXISTING], index=FakeIndex({"uthaymin-000421": ITEMS_90S}))
 
     assert upload(client).json()["candidates"][0]["pending"] is False
 
@@ -478,3 +479,20 @@ def test_dropping_something_that_is_not_pending_touches_no_file() -> None:
 
     assert response.status_code == 409
     assert store.discarded == []
+
+
+def test_a_file_without_readable_audio_is_refused_and_removed() -> None:
+    # A photo, a screen recording without sound, a document renamed .mp4: say so plainly
+    # instead of filing something nobody can ever transcribe.
+    store = FakeStore()
+    submissions = FakeSubmissions()
+    client = client_for(
+        store=store, submissions=submissions, extractor=FakeExtractor(unreadable=True)
+    )
+
+    response = upload(client)
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == "no_readable_audio"
+    assert store.discarded == [Path("/staging/clip.mp4")]
+    assert submissions.recorded == {}

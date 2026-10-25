@@ -1,21 +1,21 @@
 """The bulk-upload decision: byte-identical reject, fingerprint candidate, or new.
 
 Ties layers 2 and 3 together behind the two boundaries a real deployment has to cross
-(ffmpeg/fpcalc, and the Postgres `entry_fingerprint_lookup` index) -- both stood in for
-here by fakes, per WORKFLOW.md: these are genuinely external systems, not the logic
-under test. See docs/ARCHITECTURE.md ("Revidiert 2026-10-25") for why this has to
-happen synchronously, while the contributor is still on the page.
+(fpcalc, and the Postgres key index) -- both stood in for here by fakes, per
+WORKFLOW.md: these are genuinely external systems, not the logic under test. See
+docs/ARCHITECTURE.md ("Revidiert 2026-10-25") for why this has to happen
+synchronously, while the contributor is still on the page.
 """
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+import random
+from collections.abc import Sequence, Set
 from pathlib import Path
 
-from masdar.dedup.fingerprint import FingerprintMatch
+from masdar.dedup.fingerprint import ITEM_MS, Fingerprint, index_keys
 from masdar.dedup.triage import (
     ExactDuplicate,
-    FingerprintCandidate,
     FingerprintCandidates,
     NewUpload,
     triage_upload,
@@ -24,139 +24,110 @@ from masdar.dedup.triage import (
 AUDIO = Path("/uploads/22ce82f8-d658-495a-ae0c-619be76f7af9.mp4")
 
 
-class FakeExtractor:
-    """One fingerprint per window, derived from the offset -- same convention as
-    test_dedup_fingerprint.py's FakeExtractor."""
-
-    def __init__(self, origin_ms: int = 0) -> None:
-        self.calls: list[tuple[Path, int, int]] = []
-
-    def extract(self, path: Path, offset_ms: int, duration_ms: int) -> bytes:
-        self.calls.append((path, offset_ms, duration_ms))
-        return f"audio@{offset_ms}".encode()
+def noise(n: int, seed: int) -> list[int]:
+    rng = random.Random(seed)
+    return [rng.getrandbits(32) for _ in range(n)]
 
 
-class FakeIndex:
-    """Stands in for the Postgres `entry_fingerprint_lookup` index and the
-    `entry_fingerprint` table it is built from."""
-
-    def __init__(self, windows_by_entry: dict[str, list[bytes]]) -> None:
-        self._windows_by_entry = windows_by_entry
-        self.lookup_calls: list[Sequence[bytes]] = []
-
-    def entries_sharing_a_window(self, fingerprints: Sequence[bytes]) -> set[str]:
-        self.lookup_calls.append(fingerprints)
-        wanted = set(fingerprints)
-        return {
-            entry_id
-            for entry_id, windows in self._windows_by_entry.items()
-            if wanted & set(windows)
-        }
-
-    def windows_of(self, entry_id: str) -> Sequence[bytes]:
-        return self._windows_by_entry[entry_id]
-
-
-def test_a_byte_identical_upload_is_rejected_without_touching_the_fingerprint_layer() -> None:
-    extractor = FakeExtractor()
-    index = FakeIndex({})
-    result = triage_upload(
-        AUDIO,
-        duration_ms=90_000,
-        known_sha256={"deadbeef": "uthaymin-000421"},
-        extractor=extractor,
-        index=index,
-        sha256="deadbeef",
-    )
-    assert result == ExactDuplicate(entry_id="uthaymin-000421")
-    # The whole point of running sha256 first: no ffmpeg/fpcalc cost for a file that is
-    # rejected outright, and no query against the corpus either.
-    assert extractor.calls == []
-    assert index.lookup_calls == []
-
-
-def test_a_file_sharing_no_window_with_the_corpus_is_new() -> None:
-    extractor = FakeExtractor()
-    index = FakeIndex({"other-entry": [b"audio@999999"]})
-    result = triage_upload(
-        AUDIO,
-        duration_ms=90_000,
-        known_sha256={},
-        extractor=extractor,
-        index=index,
-        sha256="freshhash",
-    )
-    assert isinstance(result, NewUpload)
-    assert result.sha256 == "freshhash"
-    assert [f.offset_ms for f in result.fingerprints] == [0, 15_000, 30_000, 45_000, 60_000]
-
-
-def test_a_file_sharing_a_long_enough_run_with_an_entry_is_a_candidate() -> None:
-    # Same windows as the new upload would produce for a 90s clip (offsets 0, 15000,
-    # 30000, 45000, 60000): a different recording of the same fatwa, no intro offset.
-    existing_windows = [f"audio@{ms}".encode() for ms in (0, 15_000, 30_000, 45_000, 60_000)]
-    index = FakeIndex({"uthaymin-000421": existing_windows})
-    result = triage_upload(
-        AUDIO,
-        duration_ms=90_000,
-        known_sha256={},
-        extractor=FakeExtractor(),
-        index=index,
-        sha256="freshhash",
-    )
-    assert isinstance(result, FingerprintCandidates)
-    assert result.sha256 == "freshhash"
-    assert result.candidates == [
-        FingerprintCandidate(
-            entry_id="uthaymin-000421",
-            match=FingerprintMatch(matched=True, offset_shift=0, run_length=5),
-        )
+def reencode(items: list[int], seed: int) -> list[int]:
+    rng = random.Random(seed)
+    return [
+        item ^ sum(1 << bit for bit in range(32) if rng.random() < 0.02) for item in items
     ]
 
 
-def test_a_shared_window_that_does_not_reach_the_minimum_run_is_not_a_candidate() -> None:
-    # Only one window happens to coincide -- the corpus lookup surfaces the entry as a
-    # possibility, but match_fingerprints must still reject it below min_consecutive.
-    index = FakeIndex({"unrelated-entry": [b"audio@30000", b"nothing-else-matches"]})
-    result = triage_upload(
-        AUDIO,
-        duration_ms=90_000,
-        known_sha256={},
-        extractor=FakeExtractor(),
-        index=index,
-        sha256="freshhash",
+#: Ninety seconds of one recording.
+UPLOAD = noise(round(90_000 / ITEM_MS), seed=1)
+
+
+class FakeExtractor:
+    def __init__(self, items: list[int]) -> None:
+        self.items = items
+        self.calls: list[Path] = []
+
+    def extract(self, path: Path) -> Fingerprint:
+        self.calls.append(path)
+        return Fingerprint(items=tuple(self.items), duration_ms=round(len(self.items) * ITEM_MS))
+
+
+class FakeIndex:
+    """Stands in for the Postgres key index: an owner is a candidate when it shares at
+    least one sampled key, exactly the query the real index runs (with a threshold)."""
+
+    def __init__(self, items_by_owner: dict[str, list[int]]) -> None:
+        self._items = items_by_owner
+        self.lookups: list[Set[int]] = []
+
+    def candidates(self, keys: Set[int]) -> set[str]:
+        self.lookups.append(keys)
+        return {owner for owner, items in self._items.items() if keys & index_keys(items)}
+
+    def items_of(self, key: str) -> Sequence[int]:
+        return self._items[key]
+
+
+def triage(extractor: FakeExtractor, index: FakeIndex, known: dict[str, str] | None = None,
+           sha256: str = "freshhash") -> object:
+    return triage_upload(
+        AUDIO, sha256=sha256, known_sha256=known or {}, extractor=extractor, index=index
     )
-    assert isinstance(result, NewUpload)
 
 
-def test_candidates_from_several_entries_are_sorted_by_match_strength() -> None:
-    # Both clear the min_consecutive=3 threshold -- "weak" only barely, on the first
-    # three windows, with the last two belonging to something else entirely.
-    weak = [b"audio@0", b"audio@15000", b"audio@30000", b"unrelated-a", b"unrelated-b"]
-    strong = [f"audio@{ms}".encode() for ms in (0, 15_000, 30_000, 45_000, 60_000)]
-    index = FakeIndex({"weak-match": weak, "strong-match": strong})
-    result = triage_upload(
-        AUDIO,
-        duration_ms=90_000,
-        known_sha256={},
-        extractor=FakeExtractor(),
-        index=index,
-        sha256="freshhash",
-    )
-    assert isinstance(result, FingerprintCandidates)
-    assert [c.entry_id for c in result.candidates] == ["strong-match", "weak-match"]
-
-
-def test_a_recording_too_short_to_fingerprint_is_new_without_querying_the_index() -> None:
+def test_a_byte_identical_upload_is_rejected_before_any_decoding() -> None:
+    extractor = FakeExtractor(UPLOAD)
     index = FakeIndex({})
-    result = triage_upload(
-        AUDIO,
-        duration_ms=0,
-        known_sha256={},
-        extractor=FakeExtractor(),
-        index=index,
-        sha256="freshhash",
-    )
+
+    result = triage(extractor, index, known={"deadbeef": "uthaymin-000421"}, sha256="deadbeef")
+
+    assert result == ExactDuplicate(entry_id="uthaymin-000421")
+    # The point of checking the hash first: no decoding, no query against the corpus.
+    assert extractor.calls == []
+    assert index.lookups == []
+
+
+def test_a_file_sharing_nothing_with_the_corpus_is_new() -> None:
+    result = triage(FakeExtractor(UPLOAD), FakeIndex({"other": noise(500, seed=2)}))
+
     assert isinstance(result, NewUpload)
-    assert result.fingerprints == []
-    assert index.lookup_calls == []
+    assert result.sha256 == "freshhash"
+    assert result.fingerprint.items == tuple(UPLOAD)
+
+
+def test_a_reencoded_copy_of_an_entry_is_a_candidate() -> None:
+    index = FakeIndex({"uthaymin-000421": reencode(UPLOAD, seed=3)})
+
+    result = triage(FakeExtractor(UPLOAD), index)
+
+    assert isinstance(result, FingerprintCandidates)
+    assert [c.entry_id for c in result.candidates] == ["uthaymin-000421"]
+    assert result.candidates[0].match.matched is True
+
+
+def test_an_owner_that_shares_keys_but_does_not_line_up_is_not_a_candidate() -> None:
+    # The key lookup only narrows the search; the full comparison still decides. Here
+    # the stored recording shares a few items with the upload but is otherwise
+    # unrelated, so it is a lookup hit and not a candidate.
+    stray = noise(700, seed=4) + UPLOAD[100:104] + noise(700, seed=5)
+    result = triage(FakeExtractor(UPLOAD), FakeIndex({"unrelated": stray}))
+
+    assert isinstance(result, NewUpload)
+
+
+def test_candidates_are_ordered_by_how_much_of_them_agrees() -> None:
+    whole = reencode(UPLOAD, seed=6)
+    part = reencode(UPLOAD[: round(len(UPLOAD) * 0.6)], seed=7)
+    index = FakeIndex({"a-partial-copy": part, "z-whole-copy": whole})
+
+    result = triage(FakeExtractor(UPLOAD), index)
+
+    assert isinstance(result, FingerprintCandidates)
+    assert [c.entry_id for c in result.candidates] == ["z-whole-copy", "a-partial-copy"]
+
+
+def test_a_file_without_any_fingerprint_is_new_without_querying_the_index() -> None:
+    index = FakeIndex({})
+
+    result = triage(FakeExtractor([]), index)
+
+    assert isinstance(result, NewUpload)
+    assert index.lookups == []

@@ -12,6 +12,7 @@ constraints, the ON CONFLICT race, the cascade -- runs only against a real datab
 from __future__ import annotations
 
 import os
+import random
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
@@ -28,7 +29,12 @@ from masdar.db.submissions import (
     is_submission_key,
     submission_key,
 )
-from masdar.dedup.fingerprint import WindowFingerprint
+from masdar.dedup.fingerprint import (
+    MIN_SHARED_KEYS,
+    Fingerprint,
+    encode_items,
+    index_keys,
+)
 from masdar.domain import Attribution
 
 
@@ -69,14 +75,19 @@ def migrated_schema() -> Iterator[tuple[Any, Any]]:
             connection.execute(f"DROP SCHEMA IF EXISTS {SCHEMA} CASCADE")
 
 
-def windows(*names: str) -> list[WindowFingerprint]:
-    return [
-        WindowFingerprint(window_idx=i, offset_ms=i * 15_000, fingerprint=name.encode())
-        for i, name in enumerate(names)
-    ]
+def items(n: int, seed: int) -> list[int]:
+    rng = random.Random(seed)
+    return [rng.getrandbits(32) for _ in range(n)]
 
 
-def seed_entry(connection: Any, entry_id: str, sha256: str, *prints: str) -> None:
+def fingerprint(xs: list[int]) -> Fingerprint:
+    return Fingerprint(items=tuple(xs), duration_ms=len(xs) * 124)
+
+
+EMPTY = Fingerprint(items=(), duration_ms=90_000)
+
+
+def seed_entry(connection: Any, entry_id: str, sha256: str, xs: list[int] | None = None) -> None:
     connection.execute(
         "INSERT INTO scholar (id, name_ar, name_en) VALUES ('ibn-uthaymin', 'ابن عثيمين', "
         "'Ibn Uthaymin') ON CONFLICT DO NOTHING"
@@ -85,12 +96,16 @@ def seed_entry(connection: Any, entry_id: str, sha256: str, *prints: str) -> Non
         "INSERT INTO entry (id, scholar_id, sha256) VALUES (%s, 'ibn-uthaymin', %s)",
         (entry_id, sha256),
     )
-    for i, name in enumerate(prints):
+    if xs is not None:
         connection.execute(
-            "INSERT INTO entry_fingerprint (entry_id, window_idx, offset_ms, fingerprint) "
-            "VALUES (%s, %s, %s, %s)",
-            (entry_id, i, i * 15_000, name.encode()),
+            "INSERT INTO entry_fingerprint (entry_id, algorithm, items) VALUES (%s, 2, %s)",
+            (entry_id, encode_items(xs)),
         )
+        for key in index_keys(xs):
+            connection.execute(
+                "INSERT INTO entry_fingerprint_key (key, entry_id) VALUES (%s, %s)",
+                (key, entry_id),
+            )
 
 
 METADATA = SubmissionMetadata(
@@ -113,8 +128,7 @@ def test_integration_a_recorded_submission_starts_awaiting_a_decision() -> None:
             sha256="aaa",
             original_name="clip.mp4",
             staged_path=Path("/staging/1.mp4"),
-            duration_ms=90_000,
-            fingerprints=windows("w0", "w1"),
+            fingerprint=fingerprint(items(400, seed=1)),
             candidate_keys=[],
         )
 
@@ -131,8 +145,7 @@ def test_integration_the_second_upload_of_the_same_bytes_loses_the_race() -> Non
         args = {
             "sha256": "aaa",
             "original_name": "clip.mp4",
-            "duration_ms": 90_000,
-            "fingerprints": windows("w0"),
+            "fingerprint": EMPTY,
             "candidate_keys": [],
         }
 
@@ -148,8 +161,7 @@ def test_integration_known_hashes_cover_entries_and_pending_submissions() -> Non
             sha256="pendinghash",
             original_name="clip.mp4",
             staged_path=Path("/staging/1.mp4"),
-            duration_ms=90_000,
-            fingerprints=[],
+            fingerprint=EMPTY,
             candidate_keys=[],
         )
 
@@ -159,27 +171,56 @@ def test_integration_known_hashes_cover_entries_and_pending_submissions() -> Non
         }
 
 
+RECORDING = items(800, seed=7)
+
+
 @requires_database
-def test_integration_the_index_finds_entries_and_submissions_sharing_a_window() -> None:
+def test_integration_the_index_finds_entries_and_submissions_sharing_keys() -> None:
     with migrated_schema() as (connection, executor):
-        seed_entry(connection, "uthaymin-000421", "entryhash", "e0", "shared", "e2")
+        seed_entry(connection, "uthaymin-000421", "entryhash", RECORDING)
         PgSubmissions(executor).record(
             sha256="pendinghash",
             original_name="clip.mp4",
             staged_path=Path("/staging/1.mp4"),
-            duration_ms=90_000,
-            fingerprints=windows("shared", "s1"),
+            fingerprint=fingerprint(RECORDING),
             candidate_keys=[],
         )
         index = PgFingerprintIndex(executor)
 
-        assert index.entries_sharing_a_window([b"shared"]) == {
+        assert index.candidates(index_keys(RECORDING)) == {
             "uthaymin-000421",
             "submission:pendinghash",
         }
-        assert index.entries_sharing_a_window([b"nothing"]) == set()
-        assert list(index.windows_of("uthaymin-000421")) == [b"e0", b"shared", b"e2"]
-        assert list(index.windows_of("submission:pendinghash")) == [b"shared", b"s1"]
+        assert index.candidates(index_keys(items(800, seed=8))) == set()
+        assert tuple(index.items_of("uthaymin-000421")) == tuple(RECORDING)
+        assert tuple(index.items_of("submission:pendinghash")) == tuple(RECORDING)
+
+
+@requires_database
+def test_integration_too_few_shared_keys_is_not_a_candidate() -> None:
+    # Isolated coincidences -- a stretch of silence, a click -- must not cost a full
+    # comparison against every recording that happens to contain one.
+    with migrated_schema() as (connection, executor):
+        seed_entry(connection, "uthaymin-000421", "entryhash", RECORDING)
+        few = set(sorted(index_keys(RECORDING))[: MIN_SHARED_KEYS - 1])
+
+        assert PgFingerprintIndex(executor).candidates(few) == set()
+
+
+@requires_database
+def test_integration_a_dropped_submission_leaves_no_keys_behind() -> None:
+    with migrated_schema() as (connection, executor):
+        submissions = PgSubmissions(executor)
+        submissions.record(
+            sha256="aaa",
+            original_name="clip.mp4",
+            staged_path=Path("/staging/1.mp4"),
+            fingerprint=fingerprint(RECORDING),
+            candidate_keys=[],
+        )
+        submissions.drop("aaa")
+
+        assert PgFingerprintIndex(executor).candidates(index_keys(RECORDING)) == set()
 
 
 @requires_database
@@ -193,8 +234,7 @@ def test_integration_keeping_stores_the_contributors_claims_once() -> None:
             sha256="aaa",
             original_name="clip.mp4",
             staged_path=Path("/staging/1.mp4"),
-            duration_ms=90_000,
-            fingerprints=[],
+            fingerprint=EMPTY,
             candidate_keys=["uthaymin-000421"],
         )
 
@@ -217,24 +257,22 @@ def test_integration_keeping_stores_the_contributors_claims_once() -> None:
 
 
 @requires_database
-def test_integration_dropping_removes_the_submission_and_its_windows() -> None:
+def test_integration_dropping_removes_the_submission_and_its_fingerprint() -> None:
     with migrated_schema() as (connection, executor):
         submissions = PgSubmissions(executor)
         submissions.record(
             sha256="aaa",
             original_name="clip.mp4",
             staged_path=Path("/staging/1.mp4"),
-            duration_ms=90_000,
-            fingerprints=windows("w0", "w1"),
+            fingerprint=fingerprint(items(400, seed=1)),
             candidate_keys=[],
         )
 
         assert submissions.drop("aaa") == Path("/staging/1.mp4")
 
         assert connection.execute("SELECT count(*) FROM submission").fetchone()[0] == 0
-        assert (
-            connection.execute("SELECT count(*) FROM submission_fingerprint").fetchone()[0] == 0
-        )
+        for table in ("submission_fingerprint", "submission_fingerprint_key"):
+            assert connection.execute(f"SELECT count(*) FROM {table}").fetchone()[0] == 0
         # Nothing left to drop: the caller must not delete a file a second time.
         assert submissions.drop("aaa") is None
 
@@ -250,8 +288,7 @@ def test_integration_a_kept_submission_cannot_be_dropped_by_a_late_request() -> 
             sha256="aaa",
             original_name="clip.mp4",
             staged_path=Path("/staging/1.mp4"),
-            duration_ms=90_000,
-            fingerprints=[],
+            fingerprint=EMPTY,
             candidate_keys=[],
         )
         submissions.keep("aaa", METADATA)
@@ -268,8 +305,7 @@ def test_integration_a_registered_submission_must_name_its_entry() -> None:
             sha256="aaa",
             original_name="clip.mp4",
             staged_path=Path("/staging/1.mp4"),
-            duration_ms=90_000,
-            fingerprints=[],
+            fingerprint=EMPTY,
             candidate_keys=[],
         )
 
@@ -288,8 +324,7 @@ def test_integration_a_kept_submission_must_say_whose_words_these_are() -> None:
             sha256="aaa",
             original_name="clip.mp4",
             staged_path=Path("/staging/1.mp4"),
-            duration_ms=90_000,
-            fingerprints=[],
+            fingerprint=EMPTY,
             candidate_keys=[],
         )
 
@@ -307,8 +342,7 @@ def test_integration_keeping_with_an_unknown_scholar_is_invalid_metadata() -> No
             sha256="aaa",
             original_name="clip.mp4",
             staged_path=Path("/staging/1.mp4"),
-            duration_ms=90_000,
-            fingerprints=[],
+            fingerprint=EMPTY,
             candidate_keys=[],
         )
 
