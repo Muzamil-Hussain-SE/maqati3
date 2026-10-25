@@ -496,3 +496,56 @@ def test_a_file_without_readable_audio_is_refused_and_removed() -> None:
     assert response.json()["detail"] == "no_readable_audio"
     assert store.discarded == [Path("/staging/clip.mp4")]
     assert submissions.recorded == {}
+
+
+# --------------------------------------------------------------- the link is the key
+
+
+def keyed_client(key: str = "s3cret") -> TestClient:
+    app = create_app(
+        FakeRepository([]),  # type: ignore[arg-type]
+        store=FakeStore(),
+        extractor=FakeExtractor(),
+        index=FakeIndex(),
+        hashes=FakeHashes(),
+        submissions=FakeSubmissions(),
+        upload_key=key,
+    )
+    return TestClient(app)
+
+
+def test_uploading_without_the_links_key_is_refused() -> None:
+    # "Unlisted link" hides the page, not the API behind it. Without this anyone who
+    # finds the endpoint can fill the disk; the key in the link is what the brothers have.
+    response = upload(keyed_client())
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == "upload_key_required"
+
+
+def test_uploading_with_a_wrong_key_is_refused() -> None:
+    files = {"file": ("clip.mp4", io.BytesIO(b"bytes"), "video/mp4")}
+    response = keyed_client().post(
+        "/api/v1/uploads", files=files, headers={"X-Upload-Key": "guess"}
+    )
+
+    assert response.status_code == 401
+
+
+def test_uploading_with_the_key_works() -> None:
+    files = {"file": ("clip.mp4", io.BytesIO(b"bytes"), "video/mp4")}
+    response = keyed_client().post(
+        "/api/v1/uploads", files=files, headers={"X-Upload-Key": "s3cret"}
+    )
+
+    assert response.status_code == 200
+
+
+def test_deciding_without_the_key_is_refused() -> None:
+    response = keyed_client().post("/api/v1/uploads/abc/decision", json={"keep": False})
+
+    assert response.status_code == 401
+
+
+def test_the_public_library_needs_no_key() -> None:
+    assert keyed_client().get("/health").status_code == 200

@@ -26,6 +26,8 @@ pytestmark = pytest.mark.skipif(
 
 REPO = Path(__file__).resolve().parents[2]
 SCHEMA = "masdar_e2e"
+UPLOAD_KEY = "e2e-key"
+KEYED = {"X-Upload-Key": UPLOAD_KEY}
 
 
 def ffmpeg(*args: str) -> None:
@@ -52,7 +54,9 @@ def client(tmp_path: Path) -> Iterator[TestClient]:
             load_topics(REPO / "reference" / "topics.yml"),
         )
         settings = Settings(
-            database_url=os.environ["DATABASE_URL"], staging_dir=tmp_path / "staging"
+            database_url=os.environ["DATABASE_URL"],
+            staging_dir=tmp_path / "staging",
+            upload_key=UPLOAD_KEY,
         )
         try:
             app = build_app(
@@ -79,7 +83,9 @@ def media(tmp_path: Path) -> dict[str, Path]:
 
 def upload(client: TestClient, path: Path) -> dict[str, object]:
     with path.open("rb") as handle:
-        response = client.post("/api/v1/uploads", files={"file": (path.name, handle)})
+        response = client.post(
+            "/api/v1/uploads", files={"file": (path.name, handle)}, headers=KEYED
+        )
     assert response.status_code == 200, response.text
     body: dict[str, object] = response.json()
     return body
@@ -98,6 +104,7 @@ def test_a_contributor_uploads_keeps_and_is_protected_from_duplicates(
     assert first["status"] == "new"
     kept = client.post(
         f"/api/v1/uploads/{first['sha256']}/decision",
+        headers=KEYED,
         json={"keep": True, "contributor": "Abdullah", "scholar_id": "ibn-uthaymin",
               "claimed_attribution": "probably", "source_note": "WhatsApp group"},
     )
@@ -117,7 +124,9 @@ def test_a_contributor_uploads_keeps_and_is_protected_from_duplicates(
     assert forwarded["status"] == "candidates"
     candidates = forwarded["candidates"]
     assert isinstance(candidates, list) and candidates[0]["pending"] is True
-    dropped = client.post(f"/api/v1/uploads/{forwarded['sha256']}/decision", json={"keep": False})
+    dropped = client.post(
+        f"/api/v1/uploads/{forwarded['sha256']}/decision", json={"keep": False}, headers=KEYED
+    )
     assert dropped.json()["status"] == "dropped"
 
     # Only the kept original is left on disk.
@@ -128,8 +137,18 @@ def test_a_file_without_audio_is_refused_and_not_kept(
     client: TestClient, media: dict[str, Path], tmp_path: Path
 ) -> None:
     with media["garbage"].open("rb") as handle:
-        response = client.post("/api/v1/uploads", files={"file": ("photo.mp4", handle)})
+        response = client.post(
+            "/api/v1/uploads", files={"file": ("photo.mp4", handle)}, headers=KEYED
+        )
 
     assert response.status_code == 422
     assert response.json()["detail"] == "no_readable_audio"
     assert list((tmp_path / "staging").iterdir()) == []
+
+
+def test_the_server_refuses_to_build_without_an_upload_key(tmp_path: Path) -> None:
+    # Fail closed: a deployment that forgot the key must not serve an open upload API.
+    with pytest.raises(ValueError, match="UPLOAD_KEY"):
+        build_app(
+            Settings(database_url="postgresql://unused", staging_dir=tmp_path, upload_key="")
+        )
