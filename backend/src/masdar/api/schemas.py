@@ -10,6 +10,7 @@ from __future__ import annotations
 import html
 from collections.abc import Iterable, Sequence
 from datetime import date
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -306,3 +307,53 @@ def build_topic_tree(topics: Sequence[TopicRow]) -> list[TopicNode]:
     tree = [node(topic, frozenset()) for topic in roots]
     tree.extend(TopicNode.of(topic, []) for topic in topics if topic.id not in nested)
     return tree
+
+
+class UploadMatchOut(BaseModel):
+    """An entry a fresh upload matched, as much of it as the uploader may see.
+
+    The upload page sits behind an unlisted link, not a login, so it may reveal no
+    more than the public API does. For a match that is not public every identifying
+    field is None and `public` is False: the contributor still learns that the
+    recording is very likely on file already -- so a real duplicate is not waved
+    through -- but not which entry, scholar or title it is.
+    """
+
+    public: bool
+    entry_id: str | None = None
+    scholar: ScholarOut | None = None
+    title_ar: str | None = None
+    title_en: str | None = None
+    duration_sec: int | None = None
+    #: How many consecutive fingerprint windows lined up. None for an exact duplicate,
+    #: where the bytes are identical and there is no strength to report.
+    run_length: int | None = None
+
+    @classmethod
+    def of(cls, entry: EntryRow | None, run_length: int | None = None) -> UploadMatchOut:
+        """`entry` is None whenever the caller's publication gate refused it."""
+        if entry is None:
+            return cls(public=False, run_length=run_length)
+        return cls(
+            public=True,
+            entry_id=entry.id,
+            scholar=ScholarOut.of(entry.scholar),
+            title_ar=entry.title_ar,
+            title_en=entry.title_en,
+            duration_sec=entry.duration_sec,
+            run_length=run_length,
+        )
+
+
+class UploadCheckOut(BaseModel):
+    """What one uploaded file turned out to be.
+
+    `rejected`: byte-identical to an entry on file, already discarded -- nothing to
+    decide. `candidates`: the audio lines up with one or more entries; the file is kept
+    until the contributor decides. `new`: neither matched; the file is kept.
+    """
+
+    sha256: str
+    status: Literal["rejected", "candidates", "new"]
+    duplicate_of: UploadMatchOut | None = None
+    candidates: list[UploadMatchOut] = Field(default_factory=list)

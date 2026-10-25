@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, UploadFile
 
 from masdar.api.repository import (
     EntryRow,
@@ -17,9 +17,19 @@ from masdar.api.schemas import (
     ScholarListItem,
     TopicNode,
     TranscriptOut,
+    UploadCheckOut,
+    UploadMatchOut,
     approved_languages,
     build_topic_tree,
     render_webvtt,
+)
+from masdar.api.uploads import KnownHashes, UploadStore
+from masdar.dedup.fingerprint import FingerprintExtractor
+from masdar.dedup.triage import (
+    ExactDuplicate,
+    FingerprintCandidates,
+    FingerprintIndex,
+    triage_upload,
 )
 from masdar.domain import (
     Lang,
@@ -57,6 +67,32 @@ def health() -> dict[str, str]:
 
 
 Repo = Annotated[LibraryRepository, Depends(get_repository)]
+
+
+def get_upload_store() -> UploadStore:
+    """Dependency placeholder; `create_app` overrides it when uploads are wired."""
+    raise NotImplementedError("upload store was not provided to create_app")
+
+
+def get_extractor() -> FingerprintExtractor:
+    """Dependency placeholder; `create_app` overrides it when uploads are wired."""
+    raise NotImplementedError("fingerprint extractor was not provided to create_app")
+
+
+def get_fingerprint_index() -> FingerprintIndex:
+    """Dependency placeholder; `create_app` overrides it when uploads are wired."""
+    raise NotImplementedError("fingerprint index was not provided to create_app")
+
+
+def get_known_hashes() -> KnownHashes:
+    """Dependency placeholder; `create_app` overrides it when uploads are wired."""
+    raise NotImplementedError("known hashes were not provided to create_app")
+
+
+Store = Annotated[UploadStore, Depends(get_upload_store)]
+Extractor = Annotated[FingerprintExtractor, Depends(get_extractor)]
+Index = Annotated[FingerprintIndex, Depends(get_fingerprint_index)]
+Hashes = Annotated[KnownHashes, Depends(get_known_hashes)]
 
 
 def arabic_state(entry: EntryRow) -> ReviewState:
@@ -155,3 +191,63 @@ def list_scholars(repository: Repo) -> list[ScholarListItem]:
 @router.get("/api/v1/topics")
 def list_topics(repository: Repo) -> list[TopicNode]:
     return build_topic_tree(list(repository.topics()))
+
+
+# --------------------------------------------------------------- bulk upload
+
+
+def visible_match(entry_id: str, repository: LibraryRepository) -> EntryRow | None:
+    """The matched entry if the public may see it, else None.
+
+    Same gate as every other route: the upload page is an unlisted link, not a login,
+    so it reveals nothing the public API would not.
+    """
+    entry = repository.entry(entry_id)
+    return entry if entry is not None and is_published(entry) else None
+
+
+@router.post("/api/v1/uploads")
+def check_upload(
+    file: UploadFile,
+    repository: Repo,
+    store: Store,
+    extractor: Extractor,
+    index: Index,
+    hashes: Hashes,
+) -> UploadCheckOut:
+    """Stage one uploaded file and say what it is: rejected, candidates, or new.
+
+    A plain `def`, not `async def`: hashing, ffprobe and fpcalc block, and FastAPI runs
+    a sync route in its threadpool instead of stalling the event loop for everyone
+    else uploading at the same time.
+    """
+    staged = store.stage(file.filename or "upload", file.file)
+    result = triage_upload(
+        staged.path,
+        staged.duration_ms,
+        sha256=staged.sha256,
+        known_sha256=hashes.known(),
+        extractor=extractor,
+        index=index,
+    )
+    if isinstance(result, ExactDuplicate):
+        # Nothing to decide about identical bytes, so nothing worth keeping on disk.
+        store.discard(staged.path)
+        return UploadCheckOut(
+            sha256=staged.sha256,
+            status="rejected",
+            duplicate_of=UploadMatchOut.of(visible_match(result.entry_id, repository)),
+        )
+    if isinstance(result, FingerprintCandidates):
+        return UploadCheckOut(
+            sha256=staged.sha256,
+            status="candidates",
+            candidates=[
+                UploadMatchOut.of(
+                    visible_match(candidate.entry_id, repository),
+                    run_length=candidate.match.run_length,
+                )
+                for candidate in result.candidates
+            ],
+        )
+    return UploadCheckOut(sha256=staged.sha256, status="new")
