@@ -3,7 +3,11 @@
     "name": "Masdar",
     "tagline": "The words of the scholars, linked to the second they were said."
   },
-  "nav": { "topics": "Topics", "scholars": "Scholars", "about": "About" },
+  "nav": {
+    "topics": "Topics",
+    "scholars": "Scholars",
+    "about": "About"
+  },
   "entry": {
     "attribution": {
       "confirmed": "Official source",
@@ -14,5 +18,76 @@
     "jumpToSecond": "Play from here",
     "report": "Report a mistake"
   },
-  "common": { "loading": "Loading", "notFound": "Not found" }
+  "common": {
+    "loading": "Loading",
+    "notFound": "Not found"
+  },
+  "upload": {
+    "title": "Upload recordings",
+    "intro": "Choose up to 20 videos or audio files at once. Each one is checked straight away: if it is already in the archive you will see it here, and you decide.",
+    "badLink": "This link is incomplete. Please ask the admin for the upload link again.",
+    "yourName": "Your name",
+    "aboutFiles": "About these files",
+    "aboutFilesHint": "Applies to every file below. You can change it for a single file.",
+    "scholar": "Which scholar?",
+    "scholarChoose": "Choose…",
+    "scholarOther": "Not in the list",
+    "scholarOtherName": "Who is it?",
+    "confidence": "Are you sure it is really this scholar?",
+    "confidenceConfirmed": "Yes — official channel or website",
+    "confidenceProbably": "Pretty sure",
+    "confidenceNotSure": "Not sure",
+    "confidenceNote": "“Not sure” is the right answer whenever you are not sure. A recording under the wrong name is the worst mistake this archive can make.",
+    "topic": "What is it about? (optional)",
+    "topicNone": "Don’t know",
+    "source": "Where did you get them?",
+    "sourcePlaceholder": "e.g. the WhatsApp group of …, a YouTube channel, a CD",
+    "choose": "Choose videos or audio",
+    "dropHere": "or drop them here",
+    "tooMany": "Only {max} files per batch. {count} were left out — send this batch first, then add them.",
+    "status": {
+      "queued": "Waiting…",
+      "uploading": "Uploading {percent}%",
+      "checking": "Checking whether it is already in the archive…",
+      "new": "New — will be sent",
+      "rejected": "Exactly this file is already in the archive. It was not uploaded again.",
+      "rejectedPending": "Another brother already uploaded exactly this file. It was not uploaded again.",
+      "candidates": "Possibly already in the archive — please check",
+      "sending": "Sending…",
+      "sent": "Sent",
+      "dropped": "Not sent (same recording)"
+    },
+    "error": {
+      "no_readable_audio": "This file has no sound that could be read. Is it a photo or a screen recording?",
+      "upload_too_large": "This file is too large.",
+      "upload_key_required": "The upload link is not valid any more. Please ask the admin for the current link.",
+      "network": "The connection was interrupted.",
+      "not_awaiting_decision": "This file was already sent.",
+      "unknown_scholar_or_topic": "The scholar or topic was not recognised. Please choose again.",
+      "other": "Something went wrong ({code})."
+    },
+    "retry": "Try again",
+    "remove": "Remove",
+    "playMine": "Play my file",
+    "candidate": {
+      "pending": "Another brother uploaded a recording like this. It has not been reviewed yet.",
+      "withheld": "A recording like this is already in the archive.",
+      "matches": "{duration} of it matches your file",
+      "openSource": "Open the original",
+      "same": "Same recording — don’t send",
+      "different": "Different recording — send it"
+    },
+    "perFile": "Change for this file",
+    "send": "Send {count, plural, one {# file} other {# files}}",
+    "blocked": {
+      "busy": "Wait until every file is checked.",
+      "undecided": "Decide for every file marked “please check”.",
+      "scholar": "Say which scholar it is (or “Not in the list” and the name).",
+      "confidence": "Say how sure you are that it is this scholar.",
+      "empty": "There is nothing new to send."
+    },
+    "done": "Jazākallāhu khayran. {sent, plural, one {# file was} other {# files were}} sent and will be reviewed.",
+    "more": "Upload more",
+    "leaveWarning": "Some files have not been sent yet."
+  }
 }

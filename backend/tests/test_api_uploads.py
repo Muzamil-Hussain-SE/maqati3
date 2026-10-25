@@ -14,6 +14,7 @@ from collections.abc import Sequence, Set
 from pathlib import Path
 from typing import BinaryIO
 
+import pytest
 from fastapi.testclient import TestClient
 from httpx import Response
 
@@ -670,3 +671,36 @@ def test_preview_of_a_file_the_store_does_not_vouch_for_is_not_found() -> None:
     )
 
     assert TestClient(app).get("/api/v1/uploads/otherhash/media").status_code == 404
+
+
+@pytest.mark.parametrize(
+    ("suffix", "media_type"),
+    [
+        (".m4a", "audio/mp4"),  # mimetypes says audio/mp4a-latm, which no browser plays
+        (".mp4", "video/mp4"),
+        (".mov", "video/quicktime"),
+        (".3gp", "video/3gpp"),
+        (".opus", "audio/ogg"),
+        (".mp3", "audio/mpeg"),
+        ("", "application/octet-stream"),
+    ],
+)
+def test_preview_is_served_as_a_type_browsers_play(
+    tmp_path: Path, suffix: str, media_type: str
+) -> None:
+    video = tmp_path / f"staged{suffix}"
+    video.write_bytes(b"bytes")
+    submissions = FakeSubmissions()
+    submissions.recorded["h"] = {"staged_path": Path(f"/staging/x{suffix}")}
+    app = create_app(
+        FakeRepository([]),  # type: ignore[arg-type]
+        store=FakeStore(on_disk={Path(f"/staging/x{suffix}"): video}),
+        extractor=FakeExtractor(),
+        index=FakeIndex(),
+        hashes=FakeHashes(),
+        submissions=submissions,
+    )
+
+    response = TestClient(app).get("/api/v1/uploads/h/media")
+
+    assert response.headers["content-type"] == media_type
