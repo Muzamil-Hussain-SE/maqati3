@@ -2,7 +2,7 @@
 
 Mirrors `api/repository.py`: Protocols plus the plain row type the route needs, and no
 filesystem or subprocess code. The route is tested against fakes; the real
-implementations (local disk + ffprobe, Postgres) are written and verified where those
+implementations (local disk, fpcalc, Postgres) are written and verified where those
 systems exist, same reasoning as `dedup.fingerprint.FingerprintExtractor`. The other
 two boundaries the route crosses -- `FingerprintExtractor` and `FingerprintIndex` --
 are the dedup modules' own Protocols and are not restated here.
@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import BinaryIO, Protocol
 
-from masdar.dedup.fingerprint import WindowFingerprint
+from masdar.dedup.fingerprint import Fingerprint
 from masdar.domain import Attribution
 
 #: Entries and pending submissions share one match-key namespace. An entry is its own
@@ -35,21 +35,20 @@ def is_submission_key(key: str) -> bool:
 
 @dataclass(frozen=True, slots=True)
 class StagedUpload:
-    """A received file, on disk, with what triage needs to know about it."""
+    """A received file, on disk, and its hash, computed while it was written."""
 
     path: Path
     sha256: str
-    duration_ms: int
 
 
 class UploadStore(Protocol):
     """Where a freshly received file waits while it is triaged and decided on."""
 
     def stage(self, filename: str, stream: BinaryIO) -> StagedUpload:
-        """Write the upload to disk, hashing it on the way in and probing its duration.
+        """Write the upload to disk, hashing it on the way in.
 
         One pass over the bytes, not two: a phone video can run to gigabytes, and the
-        contributor is waiting on this call.
+        contributor is waiting on this call. Raises `UploadTooLarge` past the limit.
         """
         ...
 
@@ -70,6 +69,10 @@ class KnownHashes(Protocol):
         duplicate, it just must not be named to the person uploading it.
         """
         ...
+
+
+class UploadTooLarge(ValueError):
+    """The upload is bigger than the store accepts."""
 
 
 class InvalidMetadata(ValueError):
@@ -99,8 +102,7 @@ class Submissions(Protocol):
         sha256: str,
         original_name: str,
         staged_path: Path,
-        duration_ms: int,
-        fingerprints: Sequence[WindowFingerprint],
+        fingerprint: Fingerprint,
         candidate_keys: Sequence[str],
     ) -> bool:
         """Store a triaged upload. False if identical bytes were recorded first."""
@@ -126,6 +128,7 @@ __all__ = [
     "SubmissionMetadata",
     "Submissions",
     "UploadStore",
+    "UploadTooLarge",
     "is_submission_key",
     "submission_key",
 ]

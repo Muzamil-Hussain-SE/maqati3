@@ -5,6 +5,9 @@ triages against, over registered entries *and* pending submissions alike: one cl
 saved by several brothers is uploaded several times before anyone registers the first
 copy, so checking entries alone would let every copy through.
 
+Layer 3's storage is migration 0003: one fingerprint per recording, plus a value-
+sampled subset of its items as lookup keys (see `dedup.fingerprint.index_keys`).
+
 The two kinds of match share one string namespace. An entry is its own id
 ('uthaymin-000421', which never contains a colon); a submission is
 'submission:<sha256>'. Callers that need to tell them apart use `is_submission_key`.
@@ -12,7 +15,7 @@ The two kinds of match share one string namespace. An entry is its own id
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Sequence, Set
 from pathlib import Path
 
 from psycopg import errors
@@ -25,7 +28,14 @@ from masdar.api.uploads import (
     submission_key,
 )
 from masdar.db.sql import Executor
-from masdar.dedup.fingerprint import WindowFingerprint
+from masdar.dedup.fingerprint import (
+    ALGORITHM,
+    MIN_SHARED_KEYS,
+    Fingerprint,
+    decode_items,
+    encode_items,
+    index_keys,
+)
 
 # A registered submission is no longer pending: its entry carries the hash and the
 # windows from then on, and counting both would report one recording as two matches.
@@ -37,20 +47,26 @@ UNION ALL
 SELECT sha256, id FROM entry WHERE sha256 IS NOT NULL
 """
 
-_SHARING_A_WINDOW = f"""
-SELECT DISTINCT entry_id FROM entry_fingerprint WHERE fingerprint = ANY(%s)
-UNION
-SELECT DISTINCT %s || f.sha256
-  FROM submission_fingerprint f JOIN submission s USING (sha256)
- WHERE f.fingerprint = ANY(%s) AND s.{_PENDING}
+#: The most owners one upload is compared against in full. Past a handful the
+#: contributor could not listen to them all anyway; the strongest come first.
+MAX_CANDIDATES = 20
+
+_CANDIDATES = f"""
+SELECT owner FROM (
+    SELECT entry_id AS owner FROM entry_fingerprint_key WHERE key = ANY(%s::bigint[])
+    UNION ALL
+    SELECT %s || k.sha256
+      FROM submission_fingerprint_key k JOIN submission s USING (sha256)
+     WHERE k.key = ANY(%s::bigint[]) AND s.{_PENDING}
+) shared
+GROUP BY owner
+HAVING count(*) >= %s
+ORDER BY count(*) DESC, owner
+LIMIT %s
 """
 
-_ENTRY_WINDOWS = (
-    "SELECT fingerprint FROM entry_fingerprint WHERE entry_id = %s ORDER BY window_idx"
-)
-_SUBMISSION_WINDOWS = (
-    "SELECT fingerprint FROM submission_fingerprint WHERE sha256 = %s ORDER BY window_idx"
-)
+_ENTRY_ITEMS = "SELECT items FROM entry_fingerprint WHERE entry_id = %s"
+_SUBMISSION_ITEMS = "SELECT items FROM submission_fingerprint WHERE sha256 = %s"
 
 _RECORD = """
 INSERT INTO submission (sha256, original_name, staged_path, duration_ms, candidate_keys)
@@ -59,9 +75,13 @@ ON CONFLICT (sha256) DO NOTHING
 RETURNING sha256
 """
 
-_RECORD_WINDOW = (
-    "INSERT INTO submission_fingerprint (sha256, window_idx, offset_ms, fingerprint) "
-    "VALUES (%s, %s, %s, %s)"
+_RECORD_ITEMS = (
+    "INSERT INTO submission_fingerprint (sha256, algorithm, items) VALUES (%s, %s, %s)"
+)
+
+_RECORD_KEYS = (
+    "INSERT INTO submission_fingerprint_key (key, sha256) "
+    "SELECT unnest(%s::bigint[]), %s"
 )
 
 _KEEP = """
@@ -101,19 +121,25 @@ class PgFingerprintIndex:
     def __init__(self, executor: Executor) -> None:
         self._executor = executor
 
-    def entries_sharing_a_window(self, fingerprints: Sequence[bytes]) -> set[str]:
-        prints = list(fingerprints)
-        rows = self._executor.fetchall(_SHARING_A_WINDOW, (prints, SUBMISSION_PREFIX, prints))
+    def candidates(self, keys: Set[int]) -> set[str]:
+        wanted = sorted(keys)
+        rows = self._executor.fetchall(
+            _CANDIDATES, (wanted, SUBMISSION_PREFIX, wanted, MIN_SHARED_KEYS, MAX_CANDIDATES)
+        )
         return {str(row[0]) for row in rows}
 
-    def windows_of(self, entry_id: str) -> Sequence[bytes]:
-        if is_submission_key(entry_id):
+    def items_of(self, key: str) -> Sequence[int]:
+        if is_submission_key(key):
             rows = self._executor.fetchall(
-                _SUBMISSION_WINDOWS, (entry_id.removeprefix(SUBMISSION_PREFIX),)
+                _SUBMISSION_ITEMS, (key.removeprefix(SUBMISSION_PREFIX),)
             )
         else:
-            rows = self._executor.fetchall(_ENTRY_WINDOWS, (entry_id,))
-        return [bytes(row[0]) for row in rows]  # type: ignore[call-overload]
+            rows = self._executor.fetchall(_ENTRY_ITEMS, (key,))
+        if not rows:
+            return ()
+        stored = rows[0][0]
+        assert isinstance(stored, bytes | memoryview)
+        return decode_items(bytes(stored))
 
 
 class PgSubmissions:
@@ -128,8 +154,7 @@ class PgSubmissions:
         sha256: str,
         original_name: str,
         staged_path: Path,
-        duration_ms: int,
-        fingerprints: Sequence[WindowFingerprint],
+        fingerprint: Fingerprint,
         candidate_keys: Sequence[str],
     ) -> bool:
         """Store a triaged upload. False if the same bytes were recorded first.
@@ -140,13 +165,22 @@ class PgSubmissions:
         with self._executor.transaction():
             won = self._executor.fetchall(
                 _RECORD,
-                (sha256, original_name, str(staged_path), duration_ms, list(candidate_keys)),
+                (
+                    sha256,
+                    original_name,
+                    str(staged_path),
+                    fingerprint.duration_ms,
+                    list(candidate_keys),
+                ),
             )
             if not won:
                 return False
-            for row in fingerprints:
+            if fingerprint.items:
                 self._executor.execute(
-                    _RECORD_WINDOW, (sha256, row.window_idx, row.offset_ms, row.fingerprint)
+                    _RECORD_ITEMS, (sha256, ALGORITHM, encode_items(fingerprint.items))
+                )
+                self._executor.execute(
+                    _RECORD_KEYS, (sorted(index_keys(fingerprint.items)), sha256)
                 )
         return True
 

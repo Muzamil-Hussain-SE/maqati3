@@ -31,9 +31,10 @@ from masdar.api.uploads import (
     SubmissionMetadata,
     Submissions,
     UploadStore,
+    UploadTooLarge,
     is_submission_key,
 )
-from masdar.dedup.fingerprint import FingerprintExtractor
+from masdar.dedup.fingerprint import FingerprintExtractor, UnreadableMedia
 from masdar.dedup.triage import (
     ExactDuplicate,
     FingerprintCandidates,
@@ -114,6 +115,12 @@ Pending = Annotated[Submissions, Depends(get_submissions)]
 NOT_AWAITING_DECISION = "not_awaiting_decision"
 
 UNKNOWN_SCHOLAR_OR_TOPIC = "unknown_scholar_or_topic"
+
+#: The file has no audio that could be decoded: a photo, a silent screen recording, a
+#: document renamed to .mp4. Nothing in it could ever be transcribed.
+NO_READABLE_AUDIO = "no_readable_audio"
+
+UPLOAD_TOO_LARGE = "upload_too_large"
 
 
 def arabic_state(entry: EntryRow) -> ReviewState:
@@ -218,7 +225,7 @@ def list_topics(repository: Repo) -> list[TopicNode]:
 
 
 def visible_match(
-    key: str, repository: LibraryRepository, run_length: int | None = None
+    key: str, repository: LibraryRepository, overlap_ms: int | None = None
 ) -> UploadMatchOut:
     """What the uploader may see of a match, by its match key.
 
@@ -227,10 +234,10 @@ def visible_match(
     such -- the contributor should know another brother sent it in -- but not named.
     """
     if is_submission_key(key):
-        return UploadMatchOut.pending_upload(run_length=run_length)
+        return UploadMatchOut.pending_upload(overlap_ms=overlap_ms)
     entry = repository.entry(key)
     published = entry if entry is not None and is_published(entry) else None
-    return UploadMatchOut.of(published, run_length=run_length)
+    return UploadMatchOut.of(published, overlap_ms=overlap_ms)
 
 
 @router.post("/api/v1/uploads")
@@ -250,15 +257,21 @@ def check_upload(
     else uploading at the same time.
     """
     name = file.filename or "upload"
-    staged = store.stage(name, file.file)
-    result = triage_upload(
-        staged.path,
-        staged.duration_ms,
-        sha256=staged.sha256,
-        known_sha256=hashes.known(),
-        extractor=extractor,
-        index=index,
-    )
+    try:
+        staged = store.stage(name, file.file)
+    except UploadTooLarge as exc:
+        raise HTTPException(status_code=413, detail=UPLOAD_TOO_LARGE) from exc
+    try:
+        result = triage_upload(
+            staged.path,
+            sha256=staged.sha256,
+            known_sha256=hashes.known(),
+            extractor=extractor,
+            index=index,
+        )
+    except UnreadableMedia as exc:
+        store.discard(staged.path)
+        raise HTTPException(status_code=422, detail=NO_READABLE_AUDIO) from exc
     if isinstance(result, ExactDuplicate):
         # Nothing to decide about identical bytes, so nothing worth keeping on disk.
         store.discard(staged.path)
@@ -273,8 +286,7 @@ def check_upload(
         sha256=staged.sha256,
         original_name=name,
         staged_path=staged.path,
-        duration_ms=staged.duration_ms,
-        fingerprints=result.fingerprints,
+        fingerprint=result.fingerprint,
         candidate_keys=[candidate.entry_id for candidate in candidates],
     )
     if not recorded:
@@ -291,7 +303,7 @@ def check_upload(
             sha256=staged.sha256,
             status="candidates",
             candidates=[
-                visible_match(c.entry_id, repository, run_length=c.match.run_length)
+                visible_match(c.entry_id, repository, overlap_ms=c.match.overlap_ms)
                 for c in candidates
             ],
         )

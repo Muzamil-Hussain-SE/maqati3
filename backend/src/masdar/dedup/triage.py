@@ -2,53 +2,43 @@
 
 Ties dedup layers 2 (exact.py) and 3 (fingerprint.py) together behind the boundary a
 bulk upload has to cross *while the contributor is still on the page* (see
-docs/ARCHITECTURE.md, "Revidiert 2026-10-25"): layer 2 is checked first because it is
-free and certain, so a byte-identical file never pays for fingerprinting at all. Layer
-3 then narrows the whole corpus down to a handful of candidates through one indexed
-window lookup (`entry_fingerprint_lookup`) before paying for the O(n*m) comparison in
-`match_fingerprints` -- see that module's own docstring on why it must not run
-unindexed across the corpus.
+docs/ARCHITECTURE.md, "Revidiert 2026-10-25"). Layer 2 runs first because it is free
+and certain: a byte-identical file is never decoded at all. Layer 3 then narrows the
+whole corpus to a handful of owners through the key index before paying for a full
+comparison against each.
 
-Nothing here decides whether a candidate really is the same recording. That stays a
-decision for the contributor who is looking at both, right now, with the existing
-entry's audio to listen to -- or, for a shared window too weak to pass `min_consecutive`,
-it is not even surfaced as a candidate at all.
+Nothing here decides whether a candidate really is the same recording. That stays with
+the contributor, who is looking at both right now.
 """
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping, Sequence, Set
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
 from masdar.dedup.exact import find_exact_duplicate
 from masdar.dedup.fingerprint import (
+    Fingerprint,
     FingerprintExtractor,
     FingerprintMatch,
-    WindowFingerprint,
-    fingerprint_recording,
+    index_keys,
     match_fingerprints,
 )
 
 
 class FingerprintIndex(Protocol):
-    """The read surface `entry_fingerprint_lookup` needs to expose. No database driver
-    is imported here, same reasoning as `api/repository.py`: the Postgres
-    implementation is a single indexed lookup plus a per-entry row fetch, and tests
-    exercise this module against a fake."""
+    """The read surface the key index exposes. No database driver is imported here,
+    same reasoning as `api/repository.py`; `db.submissions` implements it."""
 
-    def entries_sharing_a_window(self, fingerprints: Sequence[bytes]) -> set[str]:
-        """Every entry that has at least one window equal to one of ``fingerprints``.
-
-        One query against the ``entry_fingerprint_lookup`` index (``fingerprint = ANY
-        (...)``), not a scan -- this is what keeps the candidate search independent of
-        corpus size.
-        """
+    def candidates(self, keys: Set[int]) -> set[str]:
+        """Every owner -- entry id or submission key -- sharing enough of ``keys`` to
+        be worth a full comparison. One indexed lookup, not a scan."""
         ...
 
-    def windows_of(self, entry_id: str) -> Sequence[bytes]:
-        """``entry_id``'s own window fingerprints, in ``window_idx`` order."""
+    def items_of(self, key: str) -> Sequence[int]:
+        """The stored fingerprint items of one owner."""
         ...
 
 
@@ -61,7 +51,7 @@ class ExactDuplicate:
 
 @dataclass(frozen=True, slots=True)
 class FingerprintCandidate:
-    """One entry layer 3 found plausible, and how strong the match was."""
+    """One owner layer 3 found to line up, and how well."""
 
     entry_id: str
     match: FingerprintMatch
@@ -69,25 +59,24 @@ class FingerprintCandidate:
 
 @dataclass(frozen=True, slots=True)
 class FingerprintCandidates:
-    """At least one layer-3 candidate. The contributor decides; nothing is stored yet.
+    """At least one layer-3 candidate. The contributor decides.
 
-    ``candidates`` is sorted strongest match first, ties broken by ``entry_id`` so the
-    order is deterministic. ``sha256`` and ``fingerprints`` travel with the result so
-    that, if the contributor overrides and uploads anyway, nothing has to be
-    recomputed.
+    ``candidates`` is ordered by how much of the recording agrees, longest first, ties
+    broken by key so the order is deterministic. The fingerprint travels with the
+    result so that keeping the file needs nothing recomputed.
     """
 
     sha256: str
-    fingerprints: list[WindowFingerprint]
+    fingerprint: Fingerprint
     candidates: list[FingerprintCandidate]
 
 
 @dataclass(frozen=True, slots=True)
 class NewUpload:
-    """Neither layer matched anything. Proceeds into the normal pipeline."""
+    """Neither layer matched anything."""
 
     sha256: str
-    fingerprints: list[WindowFingerprint]
+    fingerprint: Fingerprint
 
 
 UploadTriage = ExactDuplicate | FingerprintCandidates | NewUpload
@@ -95,46 +84,37 @@ UploadTriage = ExactDuplicate | FingerprintCandidates | NewUpload
 
 def triage_upload(
     path: Path,
-    duration_ms: int,
     *,
     sha256: str,
     known_sha256: Mapping[str, str],
     extractor: FingerprintExtractor,
     index: FingerprintIndex,
-    min_consecutive: int = 3,
 ) -> UploadTriage:
     """Decide what a freshly uploaded file at ``path`` is.
 
-    ``sha256`` is computed by the caller (``exact.sha256_of_file``, streamed from the
-    file already saved to disk) rather than here, so this function never has to read a
-    multi-gigabyte upload itself just to hash it.
+    ``sha256`` is computed by the caller while the upload streams to disk, so this
+    never reads a multi-gigabyte file just to hash it. Raises
+    `fingerprint.UnreadableMedia` for a file without decodable audio.
     """
     existing = find_exact_duplicate(sha256, known=known_sha256)
     if existing is not None:
         return ExactDuplicate(entry_id=existing)
 
-    fingerprints = fingerprint_recording(path, duration_ms, extractor)
-    if not fingerprints:
-        # Nothing to look up: a recording too short to fingerprint can share no window
-        # with anything, by construction, so querying the index would only cost time.
-        return NewUpload(sha256=sha256, fingerprints=fingerprints)
+    fingerprint = extractor.extract(path)
+    if not fingerprint.items:
+        return NewUpload(sha256=sha256, fingerprint=fingerprint)
 
-    windows = [row.fingerprint for row in fingerprints]
     candidates = [
-        FingerprintCandidate(entry_id=entry_id, match=match)
-        for entry_id in index.entries_sharing_a_window(windows)
-        for match in [
-            match_fingerprints(
-                windows, list(index.windows_of(entry_id)), min_consecutive=min_consecutive
-            )
-        ]
+        FingerprintCandidate(entry_id=key, match=match)
+        for key in index.candidates(index_keys(fingerprint.items))
+        for match in [match_fingerprints(fingerprint.items, index.items_of(key))]
         if match.matched
     ]
     if not candidates:
-        return NewUpload(sha256=sha256, fingerprints=fingerprints)
+        return NewUpload(sha256=sha256, fingerprint=fingerprint)
 
-    candidates.sort(key=lambda candidate: (-candidate.match.run_length, candidate.entry_id))
-    return FingerprintCandidates(sha256=sha256, fingerprints=fingerprints, candidates=candidates)
+    candidates.sort(key=lambda candidate: (-candidate.match.overlap_ms, candidate.entry_id))
+    return FingerprintCandidates(sha256=sha256, fingerprint=fingerprint, candidates=candidates)
 
 
 __all__ = [

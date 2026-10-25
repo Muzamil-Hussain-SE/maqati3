@@ -327,19 +327,19 @@ class UploadMatchOut(BaseModel):
     title_ar: str | None = None
     title_en: str | None = None
     duration_sec: int | None = None
-    #: How many consecutive fingerprint windows lined up. None for an exact duplicate,
-    #: where the bytes are identical and there is no strength to report.
-    run_length: int | None = None
+    #: How long the stretch of audio is that agrees with the upload. None for an exact
+    #: duplicate, where the bytes are identical and there is nothing to measure.
+    overlap_ms: int | None = None
 
     @classmethod
-    def pending_upload(cls, run_length: int | None = None) -> UploadMatchOut:
-        return cls(public=False, pending=True, run_length=run_length)
+    def pending_upload(cls, overlap_ms: int | None = None) -> UploadMatchOut:
+        return cls(public=False, pending=True, overlap_ms=overlap_ms)
 
     @classmethod
-    def of(cls, entry: EntryRow | None, run_length: int | None = None) -> UploadMatchOut:
+    def of(cls, entry: EntryRow | None, overlap_ms: int | None = None) -> UploadMatchOut:
         """`entry` is None whenever the caller's publication gate refused it."""
         if entry is None:
-            return cls(public=False, run_length=run_length)
+            return cls(public=False, overlap_ms=overlap_ms)
         return cls(
             public=True,
             entry_id=entry.id,
@@ -347,7 +347,7 @@ class UploadMatchOut(BaseModel):
             title_ar=entry.title_ar,
             title_en=entry.title_en,
             duration_sec=entry.duration_sec,
-            run_length=run_length,
+            overlap_ms=overlap_ms,
         )
 
 

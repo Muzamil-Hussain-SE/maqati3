@@ -1,205 +1,241 @@
-"""Dedup layer 3: the same recording with a different cut, intro or bitrate.
+"""Dedup layer 3: the same recording, re-encoded, re-cut, or with something glued on.
 
-See docs/PIPELINE.md section 2, layer 3, and the ``entry_fingerprint`` table in
-db/migrations/0001_init.sql.
+See docs/PIPELINE.md section 2, layer 3, and migration 0003.
 
-Chromaprint is built for music. One print per file fails at exactly the normal case here:
-the same fatwa with a different intro glued to the front. Overlapping windows fix it — if
-three consecutive windows line up, it is the same recording, whatever sits in front of it.
+A forwarded clip is always re-encoded, and a re-encoded Chromaprint fingerprint is never
+byte-identical to the original. Measured on real speech through AAC 64k, MP3 32k and
+Opus 24k: 1-9 % of the bits differ, against ~48 % for unrelated speech, and roughly
+half of the 32-bit items survive exactly. The first version of this layer compared
+fingerprints for equality and so could only ever have caught what layer 2 (SHA-256)
+already catches. This one:
 
-Two limits, both deliberate:
+1. fingerprints the whole recording once (`fpcalc -raw -length 0`),
+2. aligns two recordings by voting on the items that survive re-encoding -- to one
+   item, ~0.12 s, so an intro of any length lines up,
+3. confirms the alignment by the bit error rate, judged on the longest stretch that
+   agrees rather than averaged over everything that overlaps: a forwarded compilation
+   holding this fatwa *and* another must still match, and two episodes that share only
+   a programme jingle must not.
 
-* Windows only line up when the extra intro is a whole number of hops long. A 7 s intro
-  shifts every window onto different audio and nothing compares equal. That gap is what
-  layer 4 (SimHash over the transcript) is for; narrowing the hop would cost extraction
-  time on every recording to buy very little.
-* There is no extractor implementation here. A real one has to cut the window with
-  ``ffmpeg -ss <offset> -t <extent>`` and feed it to ``fpcalc -raw``; that is a
-  subprocess seam no unit test can honestly cover, so it stays behind the Protocol and
-  is written and verified where ffmpeg actually exists.
+The thresholds were measured on synthetic Arabic speech, which is cleaner than old
+cassette material. Re-check them against real recordings before trusting them at scale.
 
-Nothing in this module decides anything. The functions return findings; whether two
-entries are the same recording, and which of them is canonical, is an admin's call.
+Nothing here decides anything. A match is shown to the contributor, who decides.
 """
 
 from __future__ import annotations
 
+import struct
+from collections import Counter
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
-DEFAULT_WINDOW_MS = 30_000
-DEFAULT_HOP_MS = 15_000
+#: The Chromaprint algorithm every stored fingerprint was made with. Fingerprints of
+#: different algorithms are not comparable, so it is pinned and stored, never assumed.
+ALGORITHM = 2
+
+#: Milliseconds between two fingerprint items: Chromaprint's 4096-sample frames advance
+#: by a third of a frame at 11025 Hz.
+ITEM_MS = 4096 / 3 / 11025 * 1000
+
+#: Above this, a stretch is not the same audio. Re-encodes measured 0.008-0.085,
+#: unrelated speech ~0.48; the margin is deliberate, because a false candidate costs
+#: the contributor one listen and a missed one costs a duplicate in the archive.
+MAX_BIT_ERROR_RATE = 0.20
+
+#: The agreeing stretch must last this long...
+MIN_OVERLAP_MS = 10_000
+
+#: ...and cover this share of the shorter recording. A shared 15 s programme jingle in
+#: front of two different three-minute fatawa covers 8 %, and is not a match.
+MIN_OVERLAP_SHARE = 0.5
+
+#: Agreement is judged over windows of this many items (~5 s), so a few bad items --
+#: a click, a dropout -- do not split one long agreeing stretch into short ones.
+AGREEMENT_WINDOW = 40
+
+#: One stored item in this many becomes an index key, chosen by value so that both
+#: recordings pick the same items wherever they sit. About one key per second of audio.
+KEY_SAMPLING = 8
+
+#: An owner sharing fewer index keys than this is not compared at all.
+MIN_SHARED_KEYS = 3
+
+#: An item value occurring more often than this in one recording -- silence, hum --
+#: says nothing about alignment and would make voting quadratic, so it gets no vote.
+MAX_POSITIONS_PER_ITEM = 16
+
+#: How many of the best-voted alignments are checked in full.
+ALIGNMENTS_TRIED = 5
 
 
-@dataclass(frozen=True)
-class Window:
-    """One fingerprint window. ``idx`` is ``entry_fingerprint.window_idx``."""
+@dataclass(frozen=True, slots=True)
+class Fingerprint:
+    """A whole recording's Chromaprint items, unsigned 32-bit, and its duration."""
 
-    idx: int
-    offset_ms: int
-
-
-def plan_windows(
-    duration_ms: int,
-    window_ms: int = DEFAULT_WINDOW_MS,
-    hop_ms: int = DEFAULT_HOP_MS,
-) -> list[Window]:
-    """Plan the overlapping windows to fingerprint for a recording of ``duration_ms``.
-
-    The last window may run past the end of the recording; the extractor clamps it. A
-    further window is only planned while the previous one does not already reach the end,
-    so a recording never gets a trailing sliver of audio as its own window.
-    """
-    if window_ms <= 0:
-        raise ValueError("window_ms must be positive")
-    if hop_ms <= 0:
-        raise ValueError("hop_ms must be positive")
-    if hop_ms > window_ms:
-        # Gaps between windows would silently leave audio unfingerprinted, which is the
-        # one failure this layer cannot afford: a missed window is a missed duplicate.
-        raise ValueError("hop_ms must not exceed window_ms, windows have to overlap")
-    if duration_ms < 0:
-        raise ValueError("duration_ms must not be negative")
-
-    if duration_ms == 0:
-        return []
-
-    windows = [Window(idx=0, offset_ms=0)]
-    # Plan another window only while the previous one still ends before the recording
-    # does. Because hop_ms <= window_ms this also keeps every offset inside the audio.
-    while (len(windows) - 1) * hop_ms + window_ms < duration_ms:
-        idx = len(windows)
-        windows.append(Window(idx=idx, offset_ms=idx * hop_ms))
-    return windows
+    items: tuple[int, ...]
+    duration_ms: int
 
 
-class FingerprintExtractionError(RuntimeError):
-    """A window produced no fingerprint at all."""
+class UnreadableMedia(ValueError):
+    """The file has no audio stream that could be decoded."""
 
 
 class FingerprintExtractor(Protocol):
-    """How audio becomes a fingerprint. The only external dependency in this module.
+    """How a file becomes a fingerprint. The only external dependency of this layer.
 
-    Implementations shell out to Chromaprint; tests use a fake. ``duration_ms`` is
-    already clamped to what is left of the recording.
+    Implemented by `dedup.chromaprint` over fpcalc; tests use a fake. Raises
+    `UnreadableMedia` for anything without decodable audio.
     """
 
-    def extract(self, path: Path, offset_ms: int, duration_ms: int) -> bytes: ...
+    def extract(self, path: Path) -> Fingerprint: ...
 
 
-@dataclass(frozen=True)
-class WindowFingerprint:
-    """One row of ``entry_fingerprint``, minus the entry id."""
-
-    window_idx: int
-    offset_ms: int
-    fingerprint: bytes
+def encode_items(items: Sequence[int]) -> bytes:
+    """Items as stored: big-endian unsigned 32-bit, four bytes each."""
+    return struct.pack(f">{len(items)}I", *items)
 
 
-def fingerprint_recording(
-    path: Path,
-    duration_ms: int,
-    extractor: FingerprintExtractor,
-    window_ms: int = DEFAULT_WINDOW_MS,
-    hop_ms: int = DEFAULT_HOP_MS,
-) -> list[WindowFingerprint]:
-    """Fingerprint every planned window of one recording.
+def decode_items(data: bytes) -> tuple[int, ...]:
+    if len(data) % 4:
+        raise ValueError(f"stored fingerprint is {len(data)} bytes, not a multiple of 4")
+    return struct.unpack(f">{len(data) // 4}I", data)
 
-    The result is dense: one row per planned window, in order. That is what makes a run
-    of matching positions convertible to milliseconds via ``hop_ms``.
+
+def index_keys(items: Sequence[int]) -> frozenset[int]:
+    """The items of a recording that go into the lookup index.
+
+    Sampled by value through a multiplicative hash, not by position: an intro shifts
+    every position, but leaves the surviving values -- and so the chosen keys -- alone.
     """
-    rows: list[WindowFingerprint] = []
-    for window in plan_windows(duration_ms, window_ms=window_ms, hop_ms=hop_ms):
-        extent = min(window_ms, duration_ms - window.offset_ms)
-        fingerprint = extractor.extract(path, window.offset_ms, extent)
-        if not fingerprint:
-            # Storing an empty fingerprint would make this window compare equal to every
-            # other failed window, inventing duplicates between unrelated recordings.
-            raise FingerprintExtractionError(
-                f"no fingerprint for {path} at offset_ms={window.offset_ms}"
-            )
-        rows.append(
-            WindowFingerprint(
-                window_idx=window.idx,
-                offset_ms=window.offset_ms,
-                fingerprint=fingerprint,
-            )
-        )
-    return rows
+    threshold = (1 << 32) // KEY_SAMPLING
+    return frozenset(item for item in items if (item * 2654435761) & 0xFFFFFFFF < threshold)
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class FingerprintMatch:
-    """What was found when two window sequences were compared.
+    """How two recordings line up.
 
-    ``offset_shift`` is measured in windows, not milliseconds: it is ``j - i`` for a run
-    where ``a[i]`` lines up with ``b[j]``. A positive value means b starts later, i.e. b
-    has that many extra windows in front of it — typically an intro. Multiply by the
-    hop used to plan the windows to get milliseconds. It is None only when not a single
-    window matched.
+    ``offset_ms`` is how much later b's copy of the shared audio starts than a's: a
+    positive value means b has that much extra in front of it, typically an intro. It is
+    None when no alignment was found at all. ``overlap_ms`` and ``bit_error_rate``
+    describe the longest stretch that agrees at that alignment.
 
-    A match is a finding, not a verdict: the admin decides which entry is canonical.
+    A match is a finding, not a verdict: the contributor decides.
     """
 
     matched: bool
-    offset_shift: int | None
-    run_length: int
+    offset_ms: int | None
+    overlap_ms: int
+    bit_error_rate: float | None
+
+
+_NO_MATCH = FingerprintMatch(matched=False, offset_ms=None, overlap_ms=0, bit_error_rate=None)
 
 
 def match_fingerprints(
-    a: Sequence[bytes],
-    b: Sequence[bytes],
-    min_consecutive: int = 3,
+    a: Sequence[int],
+    b: Sequence[int],
+    *,
+    max_bit_error_rate: float = MAX_BIT_ERROR_RATE,
+    min_overlap_ms: int = MIN_OVERLAP_MS,
+    min_overlap_share: float = MIN_OVERLAP_SHARE,
 ) -> FingerprintMatch:
-    """Find the longest run of consecutive windows that a and b share at some shift.
+    """Find the best alignment of two recordings and judge whether they are the same."""
+    if not a or not b:
+        return _NO_MATCH
 
-    This compares one pair of recordings and costs O(len(a) * (len(a) + len(b))). It is
-    meant to run on candidates only: look individual window fingerprints up against the
-    ``entry_fingerprint_lookup`` index first, then compare the handful of entries that
-    come back. Running it across the whole corpus does not scale.
-    """
-    if min_consecutive < 1:
-        raise ValueError("min_consecutive must be at least 1")
+    positions: dict[int, list[int]] = {}
+    for j, item in enumerate(b):
+        positions.setdefault(item, []).append(j)
+    votes: Counter[int] = Counter()
+    for i, item in enumerate(a):
+        found = positions.get(item, ())
+        if len(found) <= MAX_POSITIONS_PER_ITEM:
+            votes.update(j - i for j in found)
+    if not votes:
+        return _NO_MATCH
 
-    best_run = 0
-    best_shift: int | None = None
+    # Longest agreement first; among equals the cleaner one, then the smaller shift in
+    # absolute terms, so the result never depends on Counter's order for ties.
+    run, ber, shift = max(
+        (
+            (*_longest_agreeing_run(a, b, shift, max_bit_error_rate), shift)
+            for shift, _ in votes.most_common(ALIGNMENTS_TRIED)
+        ),
+        key=lambda tried: (tried[0], -tried[1], -abs(tried[2])),
+    )
 
-    for shift in range(-(len(a) - 1), len(b)) if a and b else ():
-        run = 0
-        for i in range(len(a)):
-            j = i + shift
-            if 0 <= j < len(b) and a[i] == b[j]:
-                run += 1
-                if run > best_run or (run == best_run and _closer(shift, best_shift)):
-                    best_run, best_shift = run, shift
-            else:
-                run = 0
-
+    overlap_ms = round(run * ITEM_MS)
+    shorter_ms = min(len(a), len(b)) * ITEM_MS
+    matched = (
+        run > 0 and overlap_ms >= min_overlap_ms and overlap_ms >= min_overlap_share * shorter_ms
+    )
     return FingerprintMatch(
-        matched=best_run >= min_consecutive,
-        offset_shift=best_shift if best_run else None,
-        run_length=best_run,
+        matched=matched,
+        offset_ms=round(shift * ITEM_MS),
+        overlap_ms=overlap_ms,
+        bit_error_rate=ber if run else None,
     )
 
 
-def _closer(shift: int, incumbent: int | None) -> bool:
-    """Tie-break between equally long runs, so the result is deterministic."""
-    if incumbent is None:
-        return True
-    return (abs(shift), shift) < (abs(incumbent), incumbent)
+def _longest_agreeing_run(
+    a: Sequence[int], b: Sequence[int], shift: int, max_bit_error_rate: float
+) -> tuple[int, float]:
+    """Length in items of the longest stretch where a and b agree at ``shift``, and the
+    bit error rate over that stretch. (0, 1.0) if nothing agrees."""
+    start_a = max(0, -shift)
+    end_a = min(len(a), len(b) - shift)
+    errors = [(a[i] ^ b[i + shift]).bit_count() for i in range(start_a, end_a)]
+    n = len(errors)
+    if n == 0:
+        return 0, 1.0
+
+    prefix = [0]
+    for error in errors:
+        prefix.append(prefix[-1] + error)
+
+    window = min(AGREEMENT_WINDOW, n)
+    budget = max_bit_error_rate * 32 * window
+    # Every window that agrees marks all of its items as covered; the longest covered
+    # stretch is the answer. A difference array keeps it linear.
+    covered = [0] * (n + 1)
+    for end in range(window, n + 1):
+        if prefix[end] - prefix[end - window] <= budget:
+            covered[end - window] += 1
+            covered[end] -= 1
+
+    best_start, best_len, run_start, depth = 0, 0, 0, 0
+    for k in range(n):
+        depth += covered[k]
+        if depth > 0:
+            if k - run_start + 1 > best_len:
+                best_start, best_len = run_start, k - run_start + 1
+        else:
+            run_start = k + 1
+    if best_len == 0:
+        return 0, 1.0
+    bits = prefix[best_start + best_len] - prefix[best_start]
+    return best_len, bits / (32 * best_len)
 
 
 __all__ = [
-    "DEFAULT_HOP_MS",
-    "DEFAULT_WINDOW_MS",
-    "FingerprintExtractionError",
+    "AGREEMENT_WINDOW",
+    "ALGORITHM",
+    "ITEM_MS",
+    "KEY_SAMPLING",
+    "MAX_BIT_ERROR_RATE",
+    "MIN_OVERLAP_MS",
+    "MIN_OVERLAP_SHARE",
+    "MIN_SHARED_KEYS",
+    "Fingerprint",
     "FingerprintExtractor",
     "FingerprintMatch",
-    "Window",
-    "WindowFingerprint",
-    "fingerprint_recording",
+    "UnreadableMedia",
+    "decode_items",
+    "encode_items",
+    "index_keys",
     "match_fingerprints",
-    "plan_windows",
 ]
