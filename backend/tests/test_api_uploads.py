@@ -26,7 +26,13 @@ from masdar.api.repository import (
     ScholarRef,
     Visibility,
 )
-from masdar.api.uploads import StagedUpload
+from masdar.api.uploads import (
+    InvalidMetadata,
+    StagedUpload,
+    SubmissionMetadata,
+    submission_key,
+)
+from masdar.dedup.fingerprint import WindowFingerprint
 
 UTHAYMIN = ScholarRef(id="ibn-uthaymin", name_ar="ابن عثيمين", name_en="Ibn ʿUthaymīn")
 
@@ -103,6 +109,49 @@ class FakeIndex:
         return self._windows_by_entry[entry_id]
 
 
+class FakeSubmissions:
+    """Stands in for the submission table. Records what the route asked of it."""
+
+    def __init__(self, *, lose_race: bool = False, unknown_scholar: bool = False) -> None:
+        self.lose_race = lose_race
+        self.unknown_scholar = unknown_scholar
+        self.recorded: dict[str, dict[str, object]] = {}
+        self.kept: dict[str, SubmissionMetadata] = {}
+
+    def record(
+        self,
+        *,
+        sha256: str,
+        original_name: str,
+        staged_path: Path,
+        duration_ms: int,
+        fingerprints: Sequence[WindowFingerprint],
+        candidate_keys: Sequence[str],
+    ) -> bool:
+        if self.lose_race:
+            return False
+        self.recorded[sha256] = {
+            "original_name": original_name,
+            "staged_path": staged_path,
+            "windows": len(fingerprints),
+            "candidate_keys": list(candidate_keys),
+        }
+        return True
+
+    def keep(self, sha256: str, metadata: SubmissionMetadata) -> bool:
+        if self.unknown_scholar:
+            raise InvalidMetadata("unknown scholar")
+        if sha256 not in self.recorded or sha256 in self.kept:
+            return False
+        self.kept[sha256] = metadata
+        return True
+
+    def drop(self, sha256: str) -> Path | None:
+        if sha256 not in self.recorded or sha256 in self.kept:
+            return None
+        return Path(str(self.recorded.pop(sha256)["staged_path"]))
+
+
 class FakeHashes:
     def __init__(self, known: dict[str, str] | None = None) -> None:
         self._known = known or {}
@@ -117,6 +166,7 @@ def client_for(
     store: FakeStore | None = None,
     hashes: FakeHashes | None = None,
     index: FakeIndex | None = None,
+    submissions: FakeSubmissions | None = None,
 ) -> TestClient:
     app = create_app(
         FakeRepository(entries),  # type: ignore[arg-type]
@@ -124,6 +174,7 @@ def client_for(
         extractor=FakeExtractor(),
         index=index or FakeIndex(),
         hashes=hashes or FakeHashes(),
+        submissions=submissions or FakeSubmissions(),
     )
     return TestClient(app)
 
@@ -238,3 +289,192 @@ def test_uploading_without_a_file_is_a_client_error() -> None:
     response = client_for().post("/api/v1/uploads")
 
     assert response.status_code == 422
+
+
+# --------------------------------------------------------------- recording
+
+
+def test_a_new_upload_is_recorded_with_its_windows() -> None:
+    submissions = FakeSubmissions()
+
+    upload(client_for(submissions=submissions), filename="whatsapp.mp4")
+
+    assert submissions.recorded["freshhash"] == {
+        "original_name": "whatsapp.mp4",
+        "staged_path": Path("/staging/whatsapp.mp4"),
+        "windows": 5,
+        "candidate_keys": [],
+    }
+
+
+def test_a_candidate_upload_is_recorded_with_the_keys_it_matched() -> None:
+    # Kept despite a match is the first thing an admin looks at, so the match travels
+    # with the submission from the moment it is recorded.
+    submissions = FakeSubmissions()
+    client = client_for(
+        entries=[EXISTING],
+        index=FakeIndex({"uthaymin-000421": WINDOWS_90S}),
+        submissions=submissions,
+    )
+
+    upload(client)
+
+    assert submissions.recorded["freshhash"]["candidate_keys"] == ["uthaymin-000421"]
+
+
+def test_a_rejected_upload_is_not_recorded() -> None:
+    submissions = FakeSubmissions()
+    client = client_for(
+        entries=[EXISTING],
+        store=FakeStore(sha256="deadbeef"),
+        hashes=FakeHashes({"deadbeef": "uthaymin-000421"}),
+        submissions=submissions,
+    )
+
+    upload(client)
+
+    assert submissions.recorded == {}
+
+
+def test_losing_the_race_to_an_identical_upload_is_a_rejection() -> None:
+    # Two brothers upload the same clip at the same moment; the other one was first.
+    store = FakeStore()
+    client = client_for(store=store, submissions=FakeSubmissions(lose_race=True))
+
+    body = upload(client).json()
+
+    assert body["status"] == "rejected"
+    assert body["duplicate_of"]["pending"] is True
+    assert store.discarded == [Path("/staging/clip.mp4")]
+
+
+def test_a_match_on_a_pending_upload_says_so_without_naming_it() -> None:
+    client = client_for(index=FakeIndex({submission_key("otherhash"): WINDOWS_90S}))
+
+    response = upload(client)
+
+    candidate = response.json()["candidates"][0]
+    assert candidate["pending"] is True
+    assert candidate["public"] is False
+    assert candidate["entry_id"] is None
+    assert "otherhash" not in response.text
+
+
+def test_a_public_entry_match_is_not_marked_pending() -> None:
+    client = client_for(entries=[EXISTING], index=FakeIndex({"uthaymin-000421": WINDOWS_90S}))
+
+    assert upload(client).json()["candidates"][0]["pending"] is False
+
+
+# --------------------------------------------------------------- the contributor decides
+
+KEEP = {
+    "keep": True,
+    "contributor": "Abdullah",
+    "scholar_id": "ibn-uthaymin",
+    "claimed_attribution": "probably",
+    "source_note": "from the Uthaymin WhatsApp group",
+}
+
+
+def decide(client: TestClient, body: dict[str, object], sha256: str = "freshhash") -> Response:
+    return client.post(f"/api/v1/uploads/{sha256}/decision", json=body)
+
+
+def test_keeping_an_upload_stores_what_the_contributor_said() -> None:
+    submissions = FakeSubmissions()
+    client = client_for(submissions=submissions)
+    upload(client)
+
+    response = decide(client, KEEP)
+
+    assert response.status_code == 200
+    assert response.json() == {"sha256": "freshhash", "status": "kept"}
+    assert submissions.kept["freshhash"] == SubmissionMetadata(
+        contributor="Abdullah",
+        scholar_id="ibn-uthaymin",
+        scholar_other=None,
+        topic_id=None,
+        claimed_attribution=Attribution.PROBABLY,
+        source_note="from the Uthaymin WhatsApp group",
+        note=None,
+    )
+
+
+def test_keeping_needs_to_know_whose_words_these_are() -> None:
+    client = client_for()
+    upload(client)
+
+    response = decide(client, {**KEEP, "scholar_id": None, "scholar_other": "   "})
+
+    assert response.status_code == 422
+
+
+def test_a_scholar_not_in_the_list_can_be_named_freely() -> None:
+    submissions = FakeSubmissions()
+    client = client_for(submissions=submissions)
+    upload(client)
+
+    response = decide(client, {**KEEP, "scholar_id": None, "scholar_other": "Shaykh Rabi"})
+
+    assert response.status_code == 200
+    assert submissions.kept["freshhash"].scholar_other == "Shaykh Rabi"
+
+
+def test_keeping_needs_the_contributors_confidence() -> None:
+    client = client_for()
+    upload(client)
+
+    body = {key: value for key, value in KEEP.items() if key != "claimed_attribution"}
+
+    assert decide(client, body).status_code == 422
+
+
+def test_keeping_with_a_scholar_or_topic_the_database_does_not_know_is_refused() -> None:
+    client = client_for(submissions=FakeSubmissions(unknown_scholar=True))
+    upload(client)
+
+    response = decide(client, KEEP)
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == "unknown_scholar_or_topic"
+
+
+def test_deciding_twice_is_refused() -> None:
+    client = client_for()
+    upload(client)
+    decide(client, KEEP)
+
+    response = decide(client, KEEP)
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == "not_awaiting_decision"
+
+
+def test_dropping_an_upload_removes_its_staged_file() -> None:
+    store = FakeStore()
+    client = client_for(store=store)
+    upload(client)
+
+    response = decide(client, {"keep": False})
+
+    assert response.status_code == 200
+    assert response.json() == {"sha256": "freshhash", "status": "dropped"}
+    assert store.discarded == [Path("/staging/clip.mp4")]
+
+
+def test_dropping_needs_no_metadata() -> None:
+    client = client_for()
+    upload(client)
+
+    assert decide(client, {"keep": False}).status_code == 200
+
+
+def test_dropping_something_that_is_not_pending_touches_no_file() -> None:
+    store = FakeStore()
+    client = client_for(store=store)
+
+    response = decide(client, {"keep": False}, sha256="neveruploaded")
+
+    assert response.status_code == 409
+    assert store.discarded == []
