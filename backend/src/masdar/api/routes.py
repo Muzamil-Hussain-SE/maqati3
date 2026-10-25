@@ -389,6 +389,22 @@ def decide_upload(
     return UploadDecisionOut(sha256=sha256, status="kept")
 
 
+#: What phones and messengers produce, pinned: `mimetypes` answers audio/mp4a-latm for
+#: .m4a, a raw-stream type no browser plays from a file.
+PREVIEW_TYPES = {
+    ".m4a": "audio/mp4",
+    ".mp4": "video/mp4",
+    ".mov": "video/quicktime",
+    ".3gp": "video/3gpp",
+    ".opus": "audio/ogg",
+    ".ogg": "audio/ogg",
+    ".mp3": "audio/mpeg",
+    ".aac": "audio/aac",
+    ".wav": "audio/wav",
+    ".webm": "video/webm",
+}
+
+
 @router.get("/api/v1/uploads/{sha256}/media", dependencies=[KeyedMedia])
 def upload_media(sha256: str, store: Store, submissions: Pending) -> FileResponse:
     """A recorded upload's file, for the contributor comparing a candidate by ear.
@@ -400,5 +416,5 @@ def upload_media(sha256: str, store: Store, submissions: Pending) -> FileRespons
     path = store.locate(recorded) if recorded is not None else None
     if path is None:
         raise HTTPException(status_code=404, detail="media_not_found")
-    media_type, _ = mimetypes.guess_type(path.name)
+    media_type = PREVIEW_TYPES.get(path.suffix.lower()) or mimetypes.guess_type(path.name)[0]
     return FileResponse(path, media_type=media_type or "application/octet-stream")
