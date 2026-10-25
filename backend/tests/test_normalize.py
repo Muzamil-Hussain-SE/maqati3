@@ -103,3 +103,51 @@ def test_normalize_ar_makes_a_persian_keyboard_line_match_an_arabic_one() -> Non
 def test_normalize_ar_is_idempotent_on_persian_letterforms() -> None:
     once = normalize_ar("ہل یجوز المسح علی الخفین")
     assert normalize_ar(once) == once
+
+
+# Uthmani mushaf orthography carries annotation marks no plainly typed Arabic text
+# ever has: honorific signs, small Qur'anic reading marks, and small superscript
+# letters (waw/yeh) marking an elided sound. Left unstripped, a Qur'anic quotation in
+# mushaf spelling never normalises to the same form as the same words typed plainly --
+# which is the single most quoted text in a fatwa corpus.
+
+
+def test_normalize_ar_removes_small_quranic_annotation_marks() -> None:
+    assert normalize_ar("ٖٟ٘") == ""
+
+
+def test_normalize_ar_removes_honorific_annotation_signs() -> None:
+    # U+0610 sallallahu alayhi wa sallam, U+0613 radi allahu anhu
+    assert normalize_ar("ؐؓ") == ""
+
+
+def test_normalize_ar_removes_small_high_quranic_signs() -> None:
+    # U+06DF small high rounded zero, U+06E1 small high dotless head of khah
+    assert normalize_ar("۟ۡ") == ""
+
+
+def test_normalize_ar_removes_small_waw_and_yeh_annotation_letters() -> None:
+    # U+06E5/U+06E6 are letter-category (Lm) in Unicode, not combining marks, but they
+    # are still a Qur'anic annotation and not a letter anyone types.
+    assert normalize_ar("ۥۦ") == ""
+
+
+def test_normalize_ar_matches_a_plainly_typed_verse_to_its_uthmani_spelling() -> None:
+    uthmani = "وَأُو۟لَٰٓئِكَ هُمُ ٱلْمُفْلِحُونَ"
+    plain = "وأولئك هم المفلحون"
+    assert normalize_ar(uthmani) == normalize_ar(plain)
+
+
+# ۃ (U+06C3, Urdu/Sindhi/Pashto teh marbuta goal) is the ة of those keyboards. The
+# Persian/Urdu block already folds the letters around it; without this one every
+# feminine-ending word (صلاة، زكاة، جماعة) still fails to match.
+
+
+def test_normalize_ar_folds_urdu_teh_marbuta_goal_to_ha() -> None:
+    assert normalize_ar("ۃ") == "ه"
+
+
+def test_normalize_ar_matches_an_urdu_keyboard_line_to_its_arabic_spelling() -> None:
+    arabic = "ما حكم الصلاة في الجماعة"
+    urdu = "ما حکم الصلاۃ فی الجماعۃ"
+    assert normalize_ar(arabic) == normalize_ar(urdu)
