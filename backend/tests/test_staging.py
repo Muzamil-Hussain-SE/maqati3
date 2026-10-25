@@ -91,3 +91,22 @@ def test_the_staging_directory_is_created_if_missing(tmp_path: Path) -> None:
     staged = LocalUploadStore(tmp_path / "a" / "b").stage("clip.mp4", io.BytesIO(VIDEO))
 
     assert staged.path.exists()
+
+
+def test_locate_vouches_for_a_staged_file(tmp_path: Path) -> None:
+    store = LocalUploadStore(tmp_path)
+    staged = store.stage("clip.mp4", io.BytesIO(VIDEO))
+
+    assert store.locate(staged.path) == staged.path.resolve()
+
+
+def test_locate_refuses_a_file_outside_staging_or_one_that_is_gone(tmp_path: Path) -> None:
+    outside = tmp_path / "secret.txt"
+    outside.write_text("not for preview")
+    store = LocalUploadStore(tmp_path / "staging")
+    staged = store.stage("clip.mp4", io.BytesIO(VIDEO))
+    store.discard(staged.path)
+
+    assert store.locate(outside) is None
+    assert store.locate(tmp_path / "staging" / ".." / "secret.txt") is None
+    assert store.locate(staged.path) is None

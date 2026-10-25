@@ -351,3 +351,20 @@ def test_integration_keeping_with_an_unknown_scholar_is_invalid_metadata() -> No
 
         state = connection.execute("SELECT state FROM submission WHERE sha256 = 'aaa'")
         assert state.fetchone()[0] == "awaiting_decision"
+
+
+@requires_database
+def test_integration_a_submissions_staged_path_is_found_until_it_is_dropped() -> None:
+    with migrated_schema() as (_, executor):
+        submissions = PgSubmissions(executor)
+        submissions.record(
+            sha256="aaa",
+            original_name="clip.mp4",
+            staged_path=Path("/staging/1.mp4"),
+            fingerprint=EMPTY,
+            candidate_keys=[],
+        )
+
+        assert submissions.staged_path("aaa") == Path("/staging/1.mp4")
+        submissions.drop("aaa")
+        assert submissions.staged_path("aaa") is None
