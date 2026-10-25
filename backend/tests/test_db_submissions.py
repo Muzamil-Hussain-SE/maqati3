@@ -368,3 +368,98 @@ def test_integration_a_submissions_staged_path_is_found_until_it_is_dropped() ->
         assert submissions.staged_path("aaa") == Path("/staging/1.mp4")
         submissions.drop("aaa")
         assert submissions.staged_path("aaa") is None
+
+
+# --------------------------------------------------------------- abandoned uploads
+#
+# A contributor uploads, then closes the browser without sending. Left alone, that
+# upload would block every later copy of the same clip as "already uploaded" -- and
+# never reach an admin. So an upload not decided within a day stops counting, and the
+# sweep removes it.
+
+
+def backdate(connection: Any, sha256: str, hours: int) -> None:
+    connection.execute(
+        "UPDATE submission SET received_at = now() - make_interval(hours => %s) "
+        "WHERE sha256 = %s",
+        (hours, sha256),
+    )
+
+
+@requires_database
+def test_integration_an_abandoned_upload_no_longer_blocks_its_duplicates() -> None:
+    with migrated_schema() as (connection, executor):
+        PgSubmissions(executor).record(
+            sha256="abandoned",
+            original_name="clip.mp4",
+            staged_path=Path("/staging/1.mp4"),
+            fingerprint=fingerprint(RECORDING),
+            candidate_keys=[],
+        )
+        backdate(connection, "abandoned", hours=25)
+
+        assert PgKnownHashes(executor).known() == {}
+        assert PgFingerprintIndex(executor).candidates(index_keys(RECORDING)) == set()
+
+
+@requires_database
+def test_integration_a_kept_upload_never_expires() -> None:
+    with migrated_schema() as (connection, executor):
+        connection.execute(
+            "INSERT INTO scholar (id, name_ar, name_en) VALUES ('ibn-uthaymin', 'ا', 'I')"
+        )
+        submissions = PgSubmissions(executor)
+        submissions.record(
+            sha256="kept",
+            original_name="clip.mp4",
+            staged_path=Path("/staging/1.mp4"),
+            fingerprint=fingerprint(RECORDING),
+            candidate_keys=[],
+        )
+        submissions.keep("kept", METADATA)
+        backdate(connection, "kept", hours=24 * 90)
+
+        assert PgKnownHashes(executor).known() == {"kept": "submission:kept"}
+        assert submissions.sweep() == []
+
+
+@requires_database
+def test_integration_the_sweep_removes_abandoned_uploads_and_returns_their_files() -> None:
+    with migrated_schema() as (connection, executor):
+        submissions = PgSubmissions(executor)
+        for sha, hours in (("old", 25), ("fresh", 1)):
+            submissions.record(
+                sha256=sha,
+                original_name="clip.mp4",
+                staged_path=Path(f"/staging/{sha}.mp4"),
+                fingerprint=fingerprint(RECORDING),
+                candidate_keys=[],
+            )
+            backdate(connection, sha, hours=hours)
+
+        assert submissions.sweep() == [Path("/staging/old.mp4")]
+        assert connection.execute("SELECT sha256 FROM submission").fetchall() == [("fresh",)]
+        # Nothing of the abandoned upload is left to match against.
+        assert (
+            connection.execute(
+                "SELECT count(*) FROM submission_fingerprint WHERE sha256 = 'old'"
+            ).fetchone()[0]
+            == 0
+        )
+
+
+@requires_database
+def test_integration_deciding_an_upload_that_was_swept_is_refused() -> None:
+    with migrated_schema() as (connection, executor):
+        submissions = PgSubmissions(executor)
+        submissions.record(
+            sha256="old",
+            original_name="clip.mp4",
+            staged_path=Path("/staging/old.mp4"),
+            fingerprint=EMPTY,
+            candidate_keys=[],
+        )
+        backdate(connection, "old", hours=25)
+        submissions.sweep()
+
+        assert submissions.drop("old") is None
