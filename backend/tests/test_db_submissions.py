@@ -463,3 +463,40 @@ def test_integration_deciding_an_upload_that_was_swept_is_refused() -> None:
         submissions.sweep()
 
         assert submissions.drop("old") is None
+
+
+# --------------------------------------------------------------- the admin's inbox
+
+
+@requires_database
+def test_integration_the_inbox_lists_kept_uploads_oldest_first_with_their_claims() -> None:
+    with migrated_schema() as (connection, executor):
+        connection.execute(
+            "INSERT INTO scholar (id, name_ar, name_en) VALUES ('ibn-uthaymin', 'ا', 'I')"
+        )
+        submissions = PgSubmissions(executor)
+        for sha, keys in (("first", ["uthaymin-000421"]), ("second", []), ("undecided", [])):
+            submissions.record(
+                sha256=sha,
+                original_name=f"{sha}.mp4",
+                staged_path=Path(f"/staging/{sha}.mp4"),
+                fingerprint=EMPTY,
+                candidate_keys=keys,
+            )
+        submissions.keep("first", METADATA)
+        submissions.keep("second", METADATA)
+
+        inbox = submissions.inbox()
+
+        # Undecided uploads are not the admin's business yet.
+        assert [item.sha256 for item in inbox] == ["first", "second"]
+        first = inbox[0]
+        assert first.original_name == "first.mp4"
+        assert first.staged_path == Path("/staging/first.mp4")
+        assert first.contributor == "Abdullah"
+        assert first.scholar_id == "ibn-uthaymin"
+        assert first.claimed_attribution is Attribution.PROBABLY
+        assert first.source_note == "from the Uthaymin WhatsApp group"
+        # Kept although it matched an entry: the first thing an admin should look at.
+        assert first.kept_despite == ["uthaymin-000421"]
+        assert inbox[1].kept_despite == []
