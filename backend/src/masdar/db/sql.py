@@ -7,12 +7,14 @@ narrow: three methods, nothing driver-specific, so a test can satisfy it in twen
 
 from __future__ import annotations
 
+import threading
 from collections.abc import Iterator, Sequence
 from contextlib import AbstractContextManager, contextmanager
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
     from psycopg import Connection
+    from psycopg_pool import ConnectionPool
 
 
 @runtime_checkable
@@ -56,6 +58,7 @@ __all__ = [
     "RESCHEDULE_JOB",
     "SELECT_JOB_ATTEMPTS",
     "Executor",
+    "PooledExecutor",
     "PsycopgExecutor",
 ]
 
@@ -82,6 +85,53 @@ class PsycopgExecutor:
 
     def transaction(self) -> AbstractContextManager[None]:
         return _silence(self._connection.transaction())
+
+
+class PooledExecutor:
+    """`Executor` over a connection pool, for the web server.
+
+    Request handlers run concurrently in FastAPI's threadpool, so one shared connection
+    would interleave their transactions. Here a statement outside a transaction borrows
+    a connection for itself; inside ``transaction()`` every statement of that thread
+    runs on the one connection the block borrowed, which is what makes a multi-statement
+    write -- recording a submission and its fingerprint -- atomic. Covered by the
+    integration test that races two uploads of the same bytes.
+    """
+
+    def __init__(self, pool: ConnectionPool[Any]) -> None:
+        self._pool = pool
+        self._held = threading.local()
+
+    def _current(self) -> Connection[Any] | None:
+        connection: Connection[Any] | None = getattr(self._held, "connection", None)
+        return connection
+
+    def execute(self, sql: str, params: Sequence[object] = ()) -> None:
+        held = self._current()
+        if held is not None:
+            held.execute(sql, tuple(params) if params else None)
+            return
+        with self._pool.connection() as connection:
+            connection.execute(sql, tuple(params) if params else None)
+
+    def fetchall(self, sql: str, params: Sequence[object] = ()) -> list[tuple[object, ...]]:
+        held = self._current()
+        if held is not None:
+            return PsycopgExecutor(held).fetchall(sql, params)
+        with self._pool.connection() as connection:
+            return PsycopgExecutor(connection).fetchall(sql, params)
+
+    @contextmanager
+    def transaction(self) -> Iterator[None]:
+        if self._current() is not None:
+            raise RuntimeError("PooledExecutor transactions do not nest")
+        with self._pool.connection() as connection:
+            self._held.connection = connection
+            try:
+                with connection.transaction():
+                    yield
+            finally:
+                self._held.connection = None
 
 
 @contextmanager
