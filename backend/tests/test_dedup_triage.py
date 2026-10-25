@@ -12,6 +12,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from pathlib import Path
 
+from masdar.dedup.fingerprint import FingerprintMatch
 from masdar.dedup.triage import (
     ExactDuplicate,
     FingerprintCandidate,
@@ -19,8 +20,6 @@ from masdar.dedup.triage import (
     NewUpload,
     triage_upload,
 )
-
-from masdar.dedup.fingerprint import FingerprintMatch
 
 AUDIO = Path("/uploads/22ce82f8-d658-495a-ae0c-619be76f7af9.mp4")
 
@@ -131,7 +130,9 @@ def test_a_shared_window_that_does_not_reach_the_minimum_run_is_not_a_candidate(
 
 
 def test_candidates_from_several_entries_are_sorted_by_match_strength() -> None:
-    weak = [b"audio@0", b"audio@15000", b"audio@15000weak"]
+    # Both clear the min_consecutive=3 threshold -- "weak" only barely, on the first
+    # three windows, with the last two belonging to something else entirely.
+    weak = [b"audio@0", b"audio@15000", b"audio@30000", b"unrelated-a", b"unrelated-b"]
     strong = [f"audio@{ms}".encode() for ms in (0, 15_000, 30_000, 45_000, 60_000)]
     index = FakeIndex({"weak-match": weak, "strong-match": strong})
     result = triage_upload(
