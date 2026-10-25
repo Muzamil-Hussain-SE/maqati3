@@ -1,6 +1,8 @@
 services:
   db:
-    image: paradedb/paradedb:latest
+    # Pinned: `latest` moved to Postgres 18, which cannot read a 17 data directory, and
+    # an unpinned image would make that jump on an ordinary `docker compose pull`.
+    image: paradedb/paradedb:0.26.3-pg17
     environment:
       POSTGRES_DB: masdar
       POSTGRES_USER: masdar
