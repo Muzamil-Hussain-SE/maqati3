@@ -60,11 +60,29 @@ Signal: zwei unabhängige Aufnahmen stimmen fast nie auf die Sekunde überein.
 deshalb braucht es Schicht 3.
 
 ### Schicht 3 — Audio-Fingerprint (Chromaprint)
-**In überlappenden 30-Sekunden-Fenstern, 15 s Versatz — nicht ein Fingerprint je Datei.**
-Chromaprint ist für Musik gebaut; ein einzelner Fingerprint über eine Sprachdatei erkennt
-genau den Normalfall nicht: dieselbe Fatwa mit anderem Intro, anderem Outro, anderem
-Zuschnitt. Fenster lösen das: überlappen ≥ 3 aufeinanderfolgende Fenster, ist es dieselbe
-Aufnahme, egal was vorne drangeklebt ist.
+**Revidiert 2026-10-25, Migration 0003.** Der ursprüngliche Plan — 30-s-Fenster, Treffer
+bei byte-gleichen Fenstern — hätte keine einzige weitergeleitete Kopie erkannt. Gemessen
+an echter Sprache durch AAC 64k, MP3 32k und Opus 24k: Die Fenster-Fingerprints einer
+neu kodierten Kopie sind **nie** byte-gleich (1–9 % der Bits weichen ab; fremde Sprache:
+~48 %). Und jede WhatsApp-Weiterleitung ist neu kodiert. Die Fenster hätten also nur
+gefunden, was SHA-256 ohnehin findet.
+
+Jetzt: ein Fingerprint je Aufnahme (`fpcalc -raw -length 0`). Ausrichtung per Abstimmung
+über die 32-Bit-Werte, die die Neukodierung exakt überleben (rund die Hälfte) — auf
+~0,12 s genau, also funktioniert ein Intro beliebiger Länge, nicht nur Vielfache von 15 s.
+Bestätigt wird über die Bitfehlerrate auf der **längsten übereinstimmenden Strecke**,
+nicht gemittelt über alles: Eine weitergeleitete Zusammenstellung aus dieser und einer
+anderen Fatwa muss treffen, zwei Folgen einer Sendung mit gleichem Jingle dürfen es nicht.
+
+Treffer, wenn: Bitfehlerrate ≤ 0,20, Strecke ≥ 10 s **und** ≥ 50 % der kürzeren
+Aufnahme. Gemessen: Neukodierungen 0,008–0,085, 7-s-Intro exakt gefunden (+7,07 s),
+40-s-Ausschnitt aus der Mitte gefunden; fremde Aufnahme — auch 147 s mit Stille — teilt
+keinen einzigen Index-Schlüssel. **Gemessen an synthetischer Sprache.** Altes
+Kassettenmaterial ist rauer; die Schwellen gegen echtes Material nachprüfen.
+
+Index: jeder achte Wert, nach Wert gewählt (nicht nach Position, sonst verschiebt ein
+Intro alle Schlüssel) — etwa ein Schlüssel pro Sekunde Audio. Kandidat ab 3 gemeinsamen
+Schlüsseln, dann voller Vergleich.
 
 ### Schicht 4 — Text (SimHash über das normalisierte Arabisch)
 Nach der ASR. 64-Bit-SimHash über Shingles von `text_norm` (Tashkeel entfernt, Alef/Hamza
@@ -96,7 +114,7 @@ günstiges Modell im Batch und ein Mensch bestätigt sie.
 sha256              Originaldatei
 source_platform_id  z. B. YouTube-Video-ID, UNIQUE
 duration_sec        auf die Sekunde
-chromaprint[]       30-s-Fenster, 15 s Versatz
+chromaprint         ein Fingerprint je Aufnahme + Index-Schlüssel (Migration 0003)
 simhash_ar          64 Bit über text_norm
 audio_profile       Samplerate, Kanäle, geschätzter Störabstand
 ```
@@ -181,7 +199,7 @@ direkte Rückmeldung. Etwa 3–5 Entwicklertage, sinnvoll sobald das Backend ste
 | Wann | Was |
 |---|---|
 | **sofort, ohne Backend** | Apps Script: URL-Normalisierung + Dauer-Vergleich + Mail an den Bruder |
-| **Phase 1, Woche 2–3** | SHA-256 und Chromaprint-Fenster beim Ingest, `canonical_id` im Schema von Anfang an |
+| **Phase 1, Woche 2–3** | SHA-256 und Chromaprint beim Ingest, `canonical_id` im Schema von Anfang an |
 | **Phase 1, Woche 3** | SimHash nach der ASR |
 | **Phase 1, Woche 4** | Metadaten-Erzeugung im Batch, als Vorschlag mit Konfidenz |
 | **Phase 2** | Vektorähnlichkeit, Gruppierung in den Suchergebnissen, eigene Upload-Seite |

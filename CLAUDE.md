@@ -151,9 +151,9 @@ and the reasoning for reversing the original no-upload-form decision: `docs/ARCH
    Chromaprint fingerprint against the corpus, with the contributor deciding on a
    fingerprint candidate before anything is stored (files)
 3. Fetch (`yt-dlp`) and normalise (`ffmpeg` → Opus); original to cold storage
-4. Audio fingerprint (Chromaprint, **overlapping 30s windows** — a single
-   whole-file print misses the common case: same fatwa, different intro). For a file
-   upload this already happened, live, in step 2.
+4. Audio fingerprint (Chromaprint, one per recording, compared by **bit error rate** —
+   a forwarded copy is always re-encoded and never byte-identical; see
+   `docs/PIPELINE.md` layer 3). For a file upload this already happened, live, in step 2.
 5. ASR → Arabic transcript with timestamps
 6. Text dedup (SimHash over normalised Arabic) — catches the same content in a
    different recording, which audio fingerprinting never will
