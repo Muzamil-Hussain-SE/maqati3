@@ -6,7 +6,9 @@ asked: the same bytes once already mean the same submission, so there is nothing
 contributor to judge.
 """
 
-from masdar.dedup.exact import find_exact_duplicate, sha256_hex
+from pathlib import Path
+
+from masdar.dedup.exact import find_exact_duplicate, sha256_hex, sha256_of_file
 
 
 def test_sha256_hex_is_the_standard_hex_digest() -> None:
@@ -37,3 +39,22 @@ def test_find_exact_duplicate_is_case_sensitive_on_the_digest() -> None:
     # elsewhere must not silently match -- that would hide a real bug upstream.
     known = {"deadbeef": "uthaymin-000421"}
     assert find_exact_duplicate("DEADBEEF", known=known) is None
+
+
+# Uploaded files can be large (phone videos run to gigabytes); streaming the hash from
+# disk is what keeps the check cheap enough to run synchronously on every upload.
+
+
+def test_sha256_of_file_matches_sha256_of_its_bytes(tmp_path: Path) -> None:
+    path = tmp_path / "clip.mp4"
+    data = b"a phone video, pretend bytes" * 1000
+    path.write_bytes(data)
+    assert sha256_of_file(path) == sha256_hex(data)
+
+
+def test_sha256_of_file_reads_in_chunks_not_all_at_once(tmp_path: Path) -> None:
+    path = tmp_path / "clip.mp4"
+    data = b"\x00" * 5000
+    path.write_bytes(data)
+    # chunk_size smaller than the file: correctness must not depend on reading it whole.
+    assert sha256_of_file(path, chunk_size=64) == sha256_hex(data)
