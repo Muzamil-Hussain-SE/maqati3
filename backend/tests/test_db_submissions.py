@@ -19,6 +19,7 @@ from typing import Any
 
 import pytest
 
+from masdar.api.uploads import InvalidMetadata
 from masdar.db.submissions import (
     PgFingerprintIndex,
     PgKnownHashes,
@@ -294,3 +295,25 @@ def test_integration_a_kept_submission_must_say_whose_words_these_are() -> None:
 
         with pytest.raises(psycopg.errors.CheckViolation):
             connection.execute("UPDATE submission SET state = 'kept' WHERE sha256 = 'aaa'")
+
+
+@requires_database
+def test_integration_keeping_with_an_unknown_scholar_is_invalid_metadata() -> None:
+    # A foreign-key violation, translated at the boundary: the route turns this into a
+    # 422 the page can explain, instead of a 500 it cannot.
+    with migrated_schema() as (connection, executor):
+        submissions = PgSubmissions(executor)
+        submissions.record(
+            sha256="aaa",
+            original_name="clip.mp4",
+            staged_path=Path("/staging/1.mp4"),
+            duration_ms=90_000,
+            fingerprints=[],
+            candidate_keys=[],
+        )
+
+        with pytest.raises(InvalidMetadata):
+            submissions.keep("aaa", METADATA)  # no scholar 'ibn-uthaymin' in this schema
+
+        state = connection.execute("SELECT state FROM submission WHERE sha256 = 'aaa'")
+        assert state.fetchone()[0] == "awaiting_decision"
