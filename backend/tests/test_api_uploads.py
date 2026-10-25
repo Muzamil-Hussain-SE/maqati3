@@ -76,10 +76,11 @@ class FakeStore:
     """Stands in for disk: hands back a fixed staged file whatever bytes arrived, so
     the route's logic is tested without real media."""
 
-    def __init__(self, sha256: str = "freshhash") -> None:
+    def __init__(self, sha256: str = "freshhash", on_disk: dict[Path, Path] | None = None) -> None:
         self.sha256 = sha256
         self.staged: list[str] = []
         self.discarded: list[Path] = []
+        self.on_disk = on_disk or {}
 
     def stage(self, filename: str, stream: BinaryIO) -> StagedUpload:
         self.staged.append(filename)
@@ -87,6 +88,9 @@ class FakeStore:
 
     def discard(self, path: Path) -> None:
         self.discarded.append(path)
+
+    def locate(self, path: Path) -> Path | None:
+        return self.on_disk.get(path)
 
 
 class FakeExtractor:
@@ -150,6 +154,10 @@ class FakeSubmissions:
         if sha256 not in self.recorded or sha256 in self.kept:
             return None
         return Path(str(self.recorded.pop(sha256)["staged_path"]))
+
+    def staged_path(self, sha256: str) -> Path | None:
+        recorded = self.recorded.get(sha256)
+        return None if recorded is None else Path(str(recorded["staged_path"]))
 
 
 class FakeHashes:
@@ -549,3 +557,114 @@ def test_deciding_without_the_key_is_refused() -> None:
 
 def test_the_public_library_needs_no_key() -> None:
     assert keyed_client().get("/health").status_code == 200
+
+
+# --------------------------------------------------------------- what the contributor can look at
+
+PUBLIC_WITH_SOURCE = EntryRow(
+    id="uthaymin-000500",
+    scholar=UTHAYMIN,
+    attribution=Attribution.CONFIRMED,
+    visibility=Visibility.PUBLIC,
+    languages=(EntryLanguageRow(Lang.AR, ReviewState.APPROVED),),
+    title_ar="حكم المسح على الجوربين",
+    source_url="https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+)
+
+
+def test_a_pending_match_can_be_previewed_by_its_id() -> None:
+    client = client_for(index=FakeIndex({submission_key("otherhash"): ITEMS_90S}))
+
+    candidate = upload(client).json()["candidates"][0]
+
+    assert candidate["preview_id"] == "otherhash"
+
+
+def test_a_public_match_offers_its_source_link_and_no_preview() -> None:
+    client = client_for(
+        entries=[PUBLIC_WITH_SOURCE], index=FakeIndex({"uthaymin-000500": ITEMS_90S})
+    )
+
+    candidate = upload(client).json()["candidates"][0]
+
+    assert candidate["source_url"] == "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    assert candidate["preview_id"] is None
+
+
+def test_a_withheld_match_offers_nothing_to_look_at() -> None:
+    client = client_for(entries=[HELD_BACK], index=FakeIndex({"uthaymin-000777": ITEMS_90S}))
+
+    candidate = upload(client).json()["candidates"][0]
+
+    assert candidate["preview_id"] is None
+    assert candidate["source_url"] is None
+
+
+def media_client(tmp_path: Path, *, key: str | None = None) -> tuple[TestClient, bytes]:
+    video = tmp_path / "staged.mp4"
+    data = b"the other brother's clip" * 100
+    video.write_bytes(data)
+    submissions = FakeSubmissions()
+    submissions.recorded["otherhash"] = {"staged_path": Path("/staging/other.mp4")}
+    app = create_app(
+        FakeRepository([]),  # type: ignore[arg-type]
+        store=FakeStore(on_disk={Path("/staging/other.mp4"): video}),
+        extractor=FakeExtractor(),
+        index=FakeIndex(),
+        hashes=FakeHashes(),
+        submissions=submissions,
+        upload_key=key,
+    )
+    return TestClient(app), data
+
+
+def test_a_pending_upload_streams_for_preview(tmp_path: Path) -> None:
+    client, data = media_client(tmp_path)
+
+    response = client.get("/api/v1/uploads/otherhash/media")
+
+    assert response.status_code == 200
+    assert response.content == data
+    assert response.headers["content-type"] == "video/mp4"
+
+
+def test_preview_supports_seeking(tmp_path: Path) -> None:
+    # Browsers fetch video in byte ranges; without them nothing past the start plays.
+    client, data = media_client(tmp_path)
+
+    response = client.get("/api/v1/uploads/otherhash/media", headers={"Range": "bytes=10-19"})
+
+    assert response.status_code == 206
+    assert response.content == data[10:20]
+
+
+def test_preview_needs_the_key_but_takes_it_in_the_url(tmp_path: Path) -> None:
+    # A <video src> cannot send a header, so this one route also reads ?k=.
+    client, _ = media_client(tmp_path, key="s3cret")
+
+    assert client.get("/api/v1/uploads/otherhash/media").status_code == 401
+    assert client.get("/api/v1/uploads/otherhash/media?k=guess").status_code == 401
+    assert client.get("/api/v1/uploads/otherhash/media?k=s3cret").status_code == 200
+
+
+def test_preview_of_something_unknown_is_not_found(tmp_path: Path) -> None:
+    client, _ = media_client(tmp_path)
+
+    assert client.get("/api/v1/uploads/nothing/media").status_code == 404
+
+
+def test_preview_of_a_file_the_store_does_not_vouch_for_is_not_found() -> None:
+    # The path comes out of the database. The store, not the route, decides whether it
+    # is a staged file; anything else is never served.
+    submissions = FakeSubmissions()
+    submissions.recorded["otherhash"] = {"staged_path": Path("/etc/passwd")}
+    app = create_app(
+        FakeRepository([]),  # type: ignore[arg-type]
+        store=FakeStore(),
+        extractor=FakeExtractor(),
+        index=FakeIndex(),
+        hashes=FakeHashes(),
+        submissions=submissions,
+    )
+
+    assert TestClient(app).get("/api/v1/uploads/otherhash/media").status_code == 404
