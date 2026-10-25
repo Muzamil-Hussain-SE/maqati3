@@ -51,7 +51,7 @@
       "checking": "Wird geprüft, ob sie schon im Archiv ist…",
       "new": "Neu – wird gesendet",
       "rejected": "Genau diese Datei ist schon im Archiv. Sie wurde nicht noch einmal hochgeladen.",
-      "rejectedPending": "Ein anderer Bruder hat genau diese Datei schon hochgeladen. Sie wurde nicht noch einmal hochgeladen.",
+      "rejectedPending": "Genau diese Datei wurde schon hochgeladen – von einem anderen Bruder oder weiter oben in diesem Durchgang. Sie wurde nicht noch einmal hochgeladen.",
       "candidates": "Vielleicht schon im Archiv – bitte prüfen",
       "sending": "Wird gesendet…",
       "sent": "Gesendet",
@@ -70,7 +70,7 @@
     "remove": "Entfernen",
     "playMine": "Meine Datei abspielen",
     "candidate": {
-      "pending": "Ein anderer Bruder hat eine ähnliche Aufnahme hochgeladen. Sie ist noch nicht geprüft.",
+      "pending": "Eine ähnliche Aufnahme wurde schon hochgeladen – von einem anderen Bruder oder weiter oben in diesem Durchgang. Sie ist noch nicht geprüft.",
       "withheld": "Eine ähnliche Aufnahme ist schon im Archiv.",
       "matches": "{duration} davon stimmen mit deiner Datei überein",
       "openSource": "Original öffnen",

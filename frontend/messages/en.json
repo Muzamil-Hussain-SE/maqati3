@@ -51,7 +51,7 @@
       "checking": "Checking whether it is already in the archive…",
       "new": "New — will be sent",
       "rejected": "Exactly this file is already in the archive. It was not uploaded again.",
-      "rejectedPending": "Another brother already uploaded exactly this file. It was not uploaded again.",
+      "rejectedPending": "Exactly this file was already uploaded — by another brother, or earlier in this batch. It was not uploaded again.",
       "candidates": "Possibly already in the archive — please check",
       "sending": "Sending…",
       "sent": "Sent",
@@ -70,7 +70,7 @@
     "remove": "Remove",
     "playMine": "Play my file",
     "candidate": {
-      "pending": "Another brother uploaded a recording like this. It has not been reviewed yet.",
+      "pending": "A recording like this was already uploaded — by another brother, or earlier in this batch. It has not been reviewed yet.",
       "withheld": "A recording like this is already in the archive.",
       "matches": "{duration} of it matches your file",
       "openSource": "Open the original",

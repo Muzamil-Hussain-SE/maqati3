@@ -26,9 +26,12 @@ import {
   type Row,
 } from '@/lib/uploads/batch';
 
-/** Two at a time: fingerprinting is CPU-bound on one small server, and a phone's upload
- * bandwidth does not get faster by being split twenty ways. */
-const CONCURRENT_UPLOADS = 2;
+/** One at a time. Each file is checked against everything recorded before it -- including
+ * the earlier files of this same batch, which matters: a phone often holds one clip saved
+ * twice. Two concurrent uploads are both checked before either is recorded, and two
+ * copies of one recording would both come back "new". A phone's upload bandwidth does
+ * not get faster by being split anyway. */
+const CONCURRENT_UPLOADS = 1;
 
 const CONTRIBUTOR_KEY = 'masdar.contributor';
 
