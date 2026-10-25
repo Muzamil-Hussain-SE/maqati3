@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from contextlib import AbstractAsyncContextManager
+
 from fastapi import FastAPI
 
 from masdar.api.repository import LibraryRepository
@@ -27,6 +30,7 @@ def create_app(
     index: FingerprintIndex | None = None,
     hashes: KnownHashes | None = None,
     submissions: Submissions | None = None,
+    lifespan: Callable[[FastAPI], AbstractAsyncContextManager[None]] | None = None,
 ) -> FastAPI:
     """Build the API around one implementation of each boundary.
 
@@ -35,7 +39,7 @@ def create_app(
     are optional: an app built without them still serves the library, and the upload
     route fails loudly instead of half-working.
     """
-    app = FastAPI(title="masdar", version="0.1.0")
+    app = FastAPI(title="masdar", version="0.1.0", lifespan=lifespan)
     app.include_router(router)
     app.dependency_overrides[get_repository] = lambda: repository
     if store is not None:
