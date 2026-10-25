@@ -16,6 +16,8 @@ The two kinds of match share one string namespace. An entry is its own id
 from __future__ import annotations
 
 from collections.abc import Sequence, Set
+from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 
 from psycopg import errors
@@ -36,6 +38,7 @@ from masdar.dedup.fingerprint import (
     encode_items,
     index_keys,
 )
+from masdar.domain import Attribution
 
 #: How long an upload may wait for its contributor's decision. Someone who uploads and
 #: then closes the browser leaves it undecided; past this it stops blocking copies of
@@ -107,6 +110,36 @@ RETURNING sha256
 """
 
 _STAGED_PATH = "SELECT staged_path FROM submission WHERE sha256 = %s"
+
+_INBOX = """
+SELECT sha256, original_name, staged_path, duration_ms, received_at, contributor,
+       scholar_id, scholar_other, topic_id, claimed_attribution, source_note, note,
+       candidate_keys
+  FROM submission
+ WHERE state = 'kept'
+ ORDER BY received_at, sha256
+"""
+
+
+@dataclass(frozen=True, slots=True)
+class InboxItem:
+    """A kept upload waiting for an admin to register it (intake/ADMIN-GUIDE.md)."""
+
+    sha256: str
+    original_name: str
+    staged_path: Path
+    duration_ms: int
+    received_at: datetime
+    contributor: str | None
+    scholar_id: str | None
+    scholar_other: str | None
+    topic_id: str | None
+    claimed_attribution: Attribution
+    source_note: str | None
+    note: str | None
+    #: Matches the contributor heard and kept the file anyway. Non-empty means: listen
+    #: to both before registering.
+    kept_despite: list[str]
 
 _SWEEP = f"""
 DELETE FROM submission
@@ -237,6 +270,31 @@ class PgSubmissions:
         fingerprint, and return the staged files for the caller to remove."""
         return [Path(str(row[0])) for row in self._executor.fetchall(_SWEEP)]
 
+    def inbox(self) -> list[InboxItem]:
+        """Every kept upload, oldest first."""
+
+        def text(value: object) -> str | None:
+            return None if value is None else str(value)
+
+        return [
+            InboxItem(
+                sha256=str(row[0]),
+                original_name=str(row[1]),
+                staged_path=Path(str(row[2])),
+                duration_ms=int(str(row[3])),
+                received_at=row[4] if isinstance(row[4], datetime) else datetime.min,
+                contributor=text(row[5]),
+                scholar_id=text(row[6]),
+                scholar_other=text(row[7]),
+                topic_id=text(row[8]),
+                claimed_attribution=Attribution(str(row[9])),
+                source_note=text(row[10]),
+                note=text(row[11]),
+                kept_despite=[str(key) for key in row[12]] if isinstance(row[12], list) else [],
+            )
+            for row in self._executor.fetchall(_INBOX)
+        ]
+
     def staged_path(self, sha256: str) -> Path | None:
         rows = self._executor.fetchall(_STAGED_PATH, (sha256,))
         return Path(str(rows[0][0])) if rows else None
@@ -244,6 +302,7 @@ class PgSubmissions:
 
 __all__ = [
     "DECISION_TTL_HOURS",
+    "InboxItem",
     "SUBMISSION_PREFIX",
     "PgFingerprintIndex",
     "PgKnownHashes",

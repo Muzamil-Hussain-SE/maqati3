@@ -1,9 +1,10 @@
-"""`python -m masdar migrate | seed | serve | sweep`.
+"""`python -m masdar migrate | seed | serve | sweep | inbox`.
 
 The first three run in that order on a fresh machine and again after every deploy; each
 is safe to repeat. Migrations are forward-only and skip what is applied; seeding upserts
 reference data and never deletes; serving is the API, which also sweeps abandoned
-uploads every half hour. `sweep` does that once, by hand.
+uploads every half hour. `sweep` does that once, by hand. `inbox` lists what
+contributors sent in and an admin has not registered yet.
 """
 
 from __future__ import annotations
@@ -22,12 +23,28 @@ from masdar.server import Settings, build_app, sweep_staging
 from masdar.staging import LocalUploadStore
 
 
+def print_inbox(submissions: PgSubmissions) -> None:
+    items = submissions.inbox()
+    if not items:
+        print("inbox is empty")
+    for item in items:
+        minutes, seconds = divmod(round(item.duration_ms / 1000), 60)
+        scholar = item.scholar_id or f"not in list: {item.scholar_other}"
+        print(f"{item.received_at:%Y-%m-%d %H:%M}  {item.original_name}  ({minutes}:{seconds:02d})")
+        print(f"    scholar: {scholar}   contributor says: {item.claimed_attribution.value}")
+        print(f"    from: {item.contributor or '-'}   source: {item.source_note or '-'}")
+        if item.kept_despite:
+            print(f"    KEPT DESPITE A MATCH with {', '.join(item.kept_despite)} -- listen to both")
+        print(f"    file: {item.staged_path}   sha256: {item.sha256}")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="masdar")
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("migrate", help="apply pending database migrations")
     commands.add_parser("seed", help="load reference/ scholars and topics")
     commands.add_parser("sweep", help="remove uploads nobody decided on within a day")
+    commands.add_parser("inbox", help="list kept uploads waiting to be registered")
     serve = commands.add_parser("serve", help="run the API")
     serve.add_argument("--host", default="127.0.0.1")
     serve.add_argument("--port", type=int, default=8000)
@@ -51,6 +68,8 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "migrate":
             applied = migrate(executor, settings.migrations_dir)
             print(f"applied: {', '.join(applied) or 'nothing, already up to date'}")
+        elif args.command == "inbox":
+            print_inbox(PgSubmissions(executor))
         elif args.command == "sweep":
             store = LocalUploadStore(settings.staging_dir, max_bytes=settings.max_upload_bytes)
             print(f"swept {sweep_staging(PgSubmissions(executor), store)} abandoned upload(s)")
