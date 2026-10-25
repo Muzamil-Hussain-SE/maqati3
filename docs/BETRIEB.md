@@ -14,6 +14,12 @@ Durchlauf in Chrome. **Auf einem echten Server noch nicht gelaufen.**
    einschalten** (+20 %): Der Server hält die einzige Kopie jedes Uploads, bis ein Admin
    ihn registriert.
 2. **Domain**: A-Record auf die IPv4 des Servers setzen.
+   *Vorläufig, solange der Projektname nicht feststeht:* kostenlos über duckdns.org (Login
+   mit Google/GitHub, Namen wählen, Server-IP eintragen) und `DOMAIN=<name>.duckdns.org`.
+   Nicht sslip.io/nip.io: beide stehen nicht auf der Public Suffix List und teilen sich
+   das Let's-Encrypt-Limit mit allen Nutzern weltweit, das Zertifikat kann scheitern.
+   Mit der echten Domain: `DOMAIN` in `.env` ändern, `docker compose up -d` — Daten
+   bleiben, nur der Link ändert sich (den Brüdern neu geben). Ungetestet auf einem Server.
 3. **Auf dem Server:**
    ```bash
    curl -fsSL https://get.docker.com | sh
