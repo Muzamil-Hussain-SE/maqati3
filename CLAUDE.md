@@ -12,9 +12,13 @@ The product is one sentence: **show me where he said it.**
 `masdar` is a working name — cheap to change while the site is not public, expensive
 after. The repo is public and open source.
 
-**Status: Phase 1 backend modules in progress** (text, dedup, register, db, api) —
-schema in place, integrity gates enforced and tested, intake structure already
-collecting material without needing the backend.
+**Status: bulk upload is built and runs end to end; not deployed yet.** Contributors
+upload up to 20 files at once (`/{locale}/upload#k=<UPLOAD_KEY>`), every file is checked
+live against the archive and against other pending uploads (SHA-256, then Chromaprint by
+bit error rate), the contributor decides on candidates, and kept uploads wait in
+`python -m masdar inbox` for an admin. Verified against real Postgres, fpcalc, ffmpeg
+and Chrome; how to run it: `docs/BETRIEB.md`. Not built yet: the ASR draft pipeline,
+registering an upload as an entry, deployment files (Docker/Caddy).
 
 ## The Constraint Everything Else Bends Around
 

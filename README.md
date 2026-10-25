@@ -4,7 +4,7 @@ A central multilingual platform (Arabic / English / German) for the video and au
 of the scholars, with transcripts, translations, and a search tool that answers questions by
 pointing at the scholars' own words — linked to the exact second in the recording.
 
-**Status: Phase 1 backend modules in progress.** See `CLAUDE.md` for the current state,
+**Status: bulk upload built, not yet deployed.** See `CLAUDE.md` for the current state,
 architecture, and the constraints the whole system is built around.
 
 ---

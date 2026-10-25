@@ -2,19 +2,42 @@
 
 As-salāmu ʿalaykum wa rahmatullāhi wa barakātuh.
 
-You only ever need **two links**. Bookmark them. You never need to open Drive folders,
+You only ever need **three links**. Bookmark them. You never need to open Drive folders,
 rename files, or know how anything works behind the scenes.
 
 | | |
 |---|---|
-| **Link 1 — Submit material** | You found a video or audio of a scholar. Fill one short form. |
+| **Upload link — Send files** | You have videos or audio on your phone or computer. Send up to 20 at once. |
+| **Link 1 — Submit a link** | You found a video online (YouTube, a website). Fill one short form. |
 | **Link 2 — My tasks** | Your list of transcripts and translations to work on. |
 
-*(Both links are pinned in the group. Ask the admin if you don't have them.)*
+*(All links are pinned in the group. Ask the admin if you don't have them. Keep the
+upload link inside the group — it works for anyone who has it.)*
 
 ---
 
-## If you found a video or audio
+## If you have videos or audio files
+
+This is the usual case: clips forwarded on WhatsApp, saved on your phone.
+
+1. Open the **upload link**. Type your name once — it is remembered.
+2. Say which scholar, how sure you are, and where you got them. This applies to every
+   file; you can change it for one file if needed.
+3. Tap **Choose videos or audio** and pick up to 20 from your gallery.
+4. Each file is checked straight away:
+   - **Already in the archive** — the exact same file is there. Nothing to do; it was
+     not uploaded twice.
+   - **Possibly already in the archive** — the same recording, but a different file (a
+     forward, a different cut). Listen to both, then choose **Same recording** or
+     **Different recording**. A scholar giving the same answer on another occasion *is*
+     a different recording — send it.
+   - **No sound that could be read** — a photo or a screen recording. Remove it.
+5. Tap **Send**. Done.
+
+Send them within a day: files that were checked but never sent are removed after 24
+hours.
+
+## If you found a video online
 
 1. Open **Link 1**.
 2. Fill the form. About one minute, mostly dropdowns.
@@ -28,7 +51,8 @@ If you are **not sure the speaker is really that scholar**, choose *Not sure* in
 This is not a weakness — it is exactly right. A fatwa attributed to the wrong scholar is
 the worst mistake this project can make, so we would rather have one entry less.
 
-You can upload the file too, but you don't have to. A link is enough.
+You don't need to upload the file — a link is enough. If you have the file but no link,
+use the upload link instead.
 
 ---
 
