@@ -68,7 +68,7 @@
       "empty": "Es gibt nichts Neues zu senden.",
       "name": "Gib zuerst deinen Namen ein."
     },
-    "done": "Jazākallāhu khayran. {sent, plural, one {# Datei wurde} other {# Dateien wurden}} gesendet und werden geprüft.",
+    "done": "Jazākallāhu khayran. {sent, plural, one {# Datei wurde gesendet und wird} other {# Dateien wurden gesendet und werden}} geprüft.",
     "more": "Weitere hochladen",
     "leaveWarning": "Einige Dateien wurden noch nicht gesendet.",
     "yourNameHint": "Damit wir wissen, von wem die Dateien kommen."
