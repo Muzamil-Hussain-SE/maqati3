@@ -16,7 +16,7 @@ import random
 
 import pytest
 
-from masdar.dedup.fingerprint import (
+from maqati3.dedup.fingerprint import (
     ITEM_MS,
     decode_items,
     encode_items,

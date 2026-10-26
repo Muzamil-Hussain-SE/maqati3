@@ -1,6 +1,6 @@
 # The whole upload stack on one machine: `docker compose up -d` in this directory.
 # Needs a .env next to this file -- see docs/BETRIEB.md.
-name: masdar
+name: maqati3
 
 services:
   db:
@@ -9,13 +9,13 @@ services:
     image: paradedb/paradedb:0.26.3-pg17
     restart: unless-stopped
     environment:
-      POSTGRES_DB: masdar
-      POSTGRES_USER: masdar
+      POSTGRES_DB: maqati3
+      POSTGRES_USER: maqati3
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U masdar -d masdar"]
+      test: ["CMD-SHELL", "pg_isready -U maqati3 -d maqati3"]
       interval: 5s
       timeout: 3s
       retries: 20
@@ -26,11 +26,11 @@ services:
       dockerfile: backend/Dockerfile
     restart: unless-stopped
     environment:
-      DATABASE_URL: postgresql://masdar:${POSTGRES_PASSWORD}@db:5432/masdar
+      DATABASE_URL: postgresql://maqati3:${POSTGRES_PASSWORD}@db:5432/maqati3
       UPLOAD_KEY: ${UPLOAD_KEY:?set UPLOAD_KEY in .env}
     volumes:
       # The only copy of every upload until an admin registers it. Back this up.
-      - staging:/var/lib/masdar
+      - staging:/var/lib/maqati3
     depends_on:
       db:
         condition: service_healthy

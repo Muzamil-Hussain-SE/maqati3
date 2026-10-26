@@ -12,7 +12,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from datetime import date
 
-from masdar.api.repository import (
+from maqati3.api.repository import (
     EntryLanguageRow,
     EntryPage,
     EntryRow,
@@ -21,8 +21,8 @@ from masdar.api.repository import (
     SegmentRow,
     TopicRow,
 )
-from masdar.db.sql import Executor
-from masdar.domain import Attribution, ContentClass, Lang, ReviewState, SpanRole, Visibility
+from maqati3.db.sql import Executor
+from maqati3.domain import Attribution, ContentClass, Lang, ReviewState, SpanRole, Visibility
 
 _PUBLISHED = """
     e.visibility = 'public'

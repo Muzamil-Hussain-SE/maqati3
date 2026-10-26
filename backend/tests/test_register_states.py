@@ -2,7 +2,7 @@
 
 import pytest
 
-from masdar.register.states import (
+from maqati3.register.states import (
     InvalidTransition,
     ReviewState,
     advance,

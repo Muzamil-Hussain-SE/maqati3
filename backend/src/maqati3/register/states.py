@@ -2,7 +2,7 @@
 
 from collections.abc import Mapping
 
-from masdar.domain import ReviewState
+from maqati3.domain import ReviewState
 
 __all__ = ["ALLOWED_TRANSITIONS", "InvalidTransition", "ReviewState", "advance"]
 

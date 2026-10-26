@@ -1,6 +1,6 @@
 """Forward-only migration runner.
 
-Execution sits behind the Executor protocol in `masdar.db.sql`, so planning and ordering
+Execution sits behind the Executor protocol in `maqati3.db.sql`, so planning and ordering
 are unit-testable without a database.
 """
 
@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
-from masdar.db.sql import (
+from maqati3.db.sql import (
     CREATE_SCHEMA_MIGRATIONS,
     INSERT_APPLIED_MIGRATION,
     SELECT_APPLIED_MIGRATIONS,

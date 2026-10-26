@@ -9,14 +9,14 @@ import sys
 
 import pytest
 
-from masdar.dedup.simhash import (
+from maqati3.dedup.simhash import (
     from_signed_64,
     hamming,
     is_near_duplicate,
     simhash,
     to_signed_64,
 )
-from masdar.text.normalize import normalize_ar
+from maqati3.text.normalize import normalize_ar
 
 # Fatwa A: wiping over socks.
 FATWA_A = (
@@ -137,7 +137,7 @@ def test_the_hash_is_stable_across_interpreter_runs() -> None:
     # stop matching after a restart, so this guards the choice of blake2b.
     script = (
         "import sys; sys.path.insert(0, 'src');"
-        "from masdar.dedup.simhash import simhash;"
+        "from maqati3.dedup.simhash import simhash;"
         "print(simhash(sys.argv[1]))"
     )
     runs = {

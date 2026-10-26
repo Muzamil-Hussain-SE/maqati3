@@ -30,7 +30,7 @@ sind von außen nicht erreichbar.
 3. **Auf dem Server:**
    ```bash
    curl -fsSL https://get.docker.com | sh
-   git clone https://github.com/PSchmitz-Valckenberg/masdar.git /opt/masdar && cd /opt/masdar/deploy
+   git clone https://github.com/PSchmitz-Valckenberg/masdar.git /opt/maqati3 && cd /opt/maqati3/deploy
    cat > .env <<EOF
    DOMAIN=archiv.example.org
    POSTGRES_PASSWORD=$(openssl rand -hex 24)
@@ -49,7 +49,7 @@ sind von außen nicht erreichbar.
 |---|---|---|
 | `DATABASE_URL` | ja | setzt `deploy/compose.yml` selbst |
 | `UPLOAD_KEY` | ja | Der Schlüssel im Upload-Link. Ohne ihn startet der Server nicht. Ändern = alle alten Links ungültig. |
-| `STAGING_DIR` | nein | Wo Uploads liegen, bis ein Admin sie registriert. Im Container `/var/lib/masdar/staging` auf dem Volume `staging`. |
+| `STAGING_DIR` | nein | Wo Uploads liegen, bis ein Admin sie registriert. Im Container `/var/lib/maqati3/staging` auf dem Volume `staging`. |
 | `MAX_UPLOAD_BYTES` | nein | Standard 2 GiB je Datei (Caddy lässt bis 2 GB durch) |
 | `FPCALC_PATH` | nein | Standard `fpcalc` (im Image enthalten) |
 
@@ -60,8 +60,8 @@ Einstellung gesperrt ist.
 
 ```bash
 cd backend
-uv run python -m masdar migrate && uv run python -m masdar seed
-UPLOAD_KEY=dev uv run python -m masdar serve --port 8000
+uv run python -m maqati3 migrate && uv run python -m maqati3 seed
+UPLOAD_KEY=dev uv run python -m maqati3 serve --port 8000
 cd frontend && npm run dev   # leitet /api an :8000 weiter (API_ORIGIN, beim Build eingebacken)
 ```
 
@@ -80,7 +80,7 @@ erreicht deshalb nie Server-Logs oder Referrer. Nur in der Gruppe teilen.
 
 ```bash
 ssh root@<IP>                                      # ggf. -i <dein Schlüssel>
-cd /opt/masdar/deploy && docker compose exec api python -m masdar inbox
+cd /opt/maqati3/deploy && docker compose exec api python -m maqati3 inbox
 ```
 
 listet abgeschickte Uploads mit Datei, Gelehrtem, Selbsteinschätzung, Quelle — und

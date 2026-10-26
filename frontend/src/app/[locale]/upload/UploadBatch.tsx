@@ -21,7 +21,7 @@ import {
  * not get faster by being split anyway. */
 const CONCURRENT_UPLOADS = 1;
 
-const CONTRIBUTOR_KEY = 'masdar.contributor';
+const CONTRIBUTOR_KEY = 'maqati3.contributor';
 
 function remember(name: string) {
   try {

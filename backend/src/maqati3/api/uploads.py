@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import BinaryIO, Protocol
 
-from masdar.dedup.fingerprint import Fingerprint
+from maqati3.dedup.fingerprint import Fingerprint
 
 #: Entries and pending submissions share one match-key namespace. An entry is its own
 #: id ('uthaymin-000421', which never contains a colon); a submission is this prefix

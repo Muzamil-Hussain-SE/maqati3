@@ -8,7 +8,7 @@ must still refuse.
 
 import pytest
 
-from masdar.register.gates import (
+from maqati3.register.gates import (
     Attribution,
     ContentClass,
     GateResult,
@@ -18,7 +18,7 @@ from masdar.register.gates import (
     is_citable,
     may_synthesise,
 )
-from masdar.register.states import ReviewState
+from maqati3.register.states import ReviewState
 
 
 def test_publication_is_blocked_when_attribution_is_not_sure() -> None:

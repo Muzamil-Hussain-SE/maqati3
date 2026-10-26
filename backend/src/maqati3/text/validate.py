@@ -10,7 +10,7 @@ reordered. See CLAUDE.md, "Why there is no forced alignment in phase 1".
 from dataclasses import dataclass
 from typing import Literal
 
-from masdar.text.transcript import ParsedTranscript, Segment
+from maqati3.text.transcript import ParsedTranscript, Segment
 
 Severity = Literal["error", "warning"]
 

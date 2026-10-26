@@ -12,7 +12,7 @@ that one — not your personal account.
 
 ## 1. Google Cloud project
 
-1. <https://console.cloud.google.com> → new project, e.g. `masdar`
+1. <https://console.cloud.google.com> → new project, e.g. `maqati3`
 2. **APIs & Services → Library**, enable all three:
    - Google Drive API
    - Google Docs API
@@ -40,7 +40,7 @@ Run once, locally, signed in as the project account:
 
 ```bash
 cd backend
-uv run python -m masdar.scripts.google_auth
+uv run python -m maqati3.scripts.google_auth
 ```
 
 It opens a browser, you approve, it prints the refresh token. Paste all three values
@@ -71,7 +71,7 @@ Share both with the project account as **Editor**.
 ## 5. Verify
 
 ```bash
-cd backend && uv run python -m masdar.scripts.google_check
+cd backend && uv run python -m maqati3.scripts.google_check
 ```
 
 Lists the four top-level folders and the register's header row. If that works, the

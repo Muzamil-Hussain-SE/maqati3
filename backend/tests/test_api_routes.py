@@ -12,8 +12,8 @@ from collections.abc import Sequence
 
 from fastapi.testclient import TestClient
 
-from masdar.api.app import create_app
-from masdar.api.repository import (
+from maqati3.api.app import create_app
+from maqati3.api.repository import (
     Attribution,
     ContentClass,
     EntryLanguageRow,

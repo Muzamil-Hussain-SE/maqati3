@@ -8,7 +8,7 @@ contributor to judge.
 
 from pathlib import Path
 
-from masdar.dedup.exact import find_exact_duplicate, sha256_hex, sha256_of_file
+from maqati3.dedup.exact import find_exact_duplicate, sha256_hex, sha256_of_file
 
 
 def test_sha256_hex_is_the_standard_hex_digest() -> None:

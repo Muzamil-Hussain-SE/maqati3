@@ -17,7 +17,7 @@ from typing import Any
 
 import pytest
 
-from masdar.db.queue import (
+from maqati3.db.queue import (
     BACKOFF_CAP_SECONDS,
     Dead,
     Job,
@@ -266,7 +266,7 @@ def test_reap_expired_puts_jobs_with_a_lapsed_lease_back_to_pending() -> None:
 # interval arithmetic are properties of Postgres, so they can only be checked here.
 
 REPO_MIGRATIONS = Path(__file__).resolve().parents[2] / "db" / "migrations"
-SCHEMA = "masdar_qtest"
+SCHEMA = "maqati3_qtest"
 
 requires_database = pytest.mark.skipif(
     not os.environ.get("DATABASE_URL"),
@@ -279,8 +279,8 @@ def migrated_schema() -> Iterator[tuple[Any, Any]]:
     """A throwaway schema with every migration applied, dropped on the way out."""
     import psycopg
 
-    from masdar.db.migrate import migrate
-    from masdar.db.sql import PsycopgExecutor
+    from maqati3.db.migrate import migrate
+    from maqati3.db.sql import PsycopgExecutor
 
     with psycopg.connect(os.environ["DATABASE_URL"], autocommit=True) as connection:
         connection.execute(f"DROP SCHEMA IF EXISTS {SCHEMA} CASCADE")
@@ -331,7 +331,7 @@ def test_integration_expired_lease_is_reaped_and_claimable_again() -> None:
 def test_integration_a_second_worker_skips_the_row_the_first_one_locked() -> None:
     import psycopg
 
-    from masdar.db.sql import PsycopgExecutor
+    from maqati3.db.sql import PsycopgExecutor
 
     url = os.environ["DATABASE_URL"]
     with migrated_schema() as (connection, _):
@@ -387,6 +387,6 @@ def test_complete_reports_success_while_the_lease_is_still_held() -> None:
 def test_fail_refuses_to_reschedule_a_job_it_no_longer_holds() -> None:
     executor = FakeExecutor([[(2,)], []])  # attempts read, then the guarded UPDATE misses
     job = Job(id=7, kind="asr", payload={}, attempts=2, locked_until=LEASE_END, token="tok-a")
-    from masdar.db import queue
+    from maqati3.db import queue
 
     assert isinstance(fail(executor, job, "boom", now=NOW), queue.LeaseLost)

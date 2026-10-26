@@ -13,8 +13,8 @@ from pathlib import Path
 
 import pytest
 
-from masdar.dedup.chromaprint import ChromaprintExtractor
-from masdar.dedup.fingerprint import UnreadableMedia, match_fingerprints
+from maqati3.dedup.chromaprint import ChromaprintExtractor
+from maqati3.dedup.fingerprint import UnreadableMedia, match_fingerprints
 
 pytestmark = pytest.mark.skipif(
     shutil.which("fpcalc") is None or shutil.which("ffmpeg") is None,

@@ -17,20 +17,20 @@ from fastapi import FastAPI
 from psycopg_pool import ConnectionPool
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from masdar.api.app import create_app
-from masdar.db.library import PgLibraryRepository
-from masdar.db.sql import PooledExecutor
-from masdar.db.submissions import PgFingerprintIndex, PgKnownHashes, PgSubmissions
-from masdar.dedup.chromaprint import ChromaprintExtractor
-from masdar.staging import DEFAULT_MAX_BYTES, LocalUploadStore
+from maqati3.api.app import create_app
+from maqati3.db.library import PgLibraryRepository
+from maqati3.db.sql import PooledExecutor
+from maqati3.db.submissions import PgFingerprintIndex, PgKnownHashes, PgSubmissions
+from maqati3.dedup.chromaprint import ChromaprintExtractor
+from maqati3.staging import DEFAULT_MAX_BYTES, LocalUploadStore
 
-#: The repository root, for the defaults below: backend/src/masdar/server.py -> repo.
+#: The repository root, for the defaults below: backend/src/maqati3/server.py -> repo.
 _REPO = Path(__file__).resolve().parents[3]
 
 #: How often the running server clears uploads nobody decided on.
 SWEEP_INTERVAL_S = 30 * 60
 
-log = logging.getLogger("masdar")
+log = logging.getLogger("maqati3")
 
 
 def sweep_staging(submissions: PgSubmissions, store: LocalUploadStore) -> int:
@@ -62,7 +62,7 @@ class Settings(BaseSettings):
     #: random -- `python -c "import secrets; print(secrets.token_urlsafe(24))"`.
     #: Changing it revokes every link handed out with the old one.
     upload_key: str = ""
-    staging_dir: Path = Path("/var/lib/masdar/staging")
+    staging_dir: Path = Path("/var/lib/maqati3/staging")
     max_upload_bytes: int = DEFAULT_MAX_BYTES
     fpcalc_path: str = "fpcalc"
     migrations_dir: Path = _REPO / "db" / "migrations"

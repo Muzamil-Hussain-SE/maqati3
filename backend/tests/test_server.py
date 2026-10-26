@@ -15,7 +15,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from masdar.server import Settings, build_app
+from maqati3.server import Settings, build_app
 
 pytestmark = pytest.mark.skipif(
     not os.environ.get("DATABASE_URL")
@@ -25,7 +25,7 @@ pytestmark = pytest.mark.skipif(
 )
 
 REPO = Path(__file__).resolve().parents[2]
-SCHEMA = "masdar_e2e"
+SCHEMA = "maqati3_e2e"
 UPLOAD_KEY = "e2e-key"
 KEYED = {"X-Upload-Key": UPLOAD_KEY}
 
@@ -38,9 +38,9 @@ def ffmpeg(*args: str) -> None:
 def client(tmp_path: Path) -> Iterator[TestClient]:
     import psycopg
 
-    from masdar.db.migrate import migrate
-    from masdar.db.seed import load_scholars, load_topics, seed_reference
-    from masdar.db.sql import PsycopgExecutor
+    from maqati3.db.migrate import migrate
+    from maqati3.db.seed import load_scholars, load_topics, seed_reference
+    from maqati3.db.sql import PsycopgExecutor
 
     with psycopg.connect(os.environ["DATABASE_URL"], autocommit=True) as connection:
         connection.execute(f"DROP SCHEMA IF EXISTS {SCHEMA} CASCADE")
@@ -164,7 +164,7 @@ def test_the_sweep_removes_abandoned_uploads_and_their_files(
 ) -> None:
     import psycopg
 
-    from masdar.server import sweep_abandoned
+    from maqati3.server import sweep_abandoned
 
     upload(client, media["original"])  # uploaded, never decided
     with psycopg.connect(os.environ["DATABASE_URL"], autocommit=True) as connection:

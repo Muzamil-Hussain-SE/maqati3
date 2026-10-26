@@ -20,14 +20,14 @@ from typing import Any
 
 import pytest
 
-from masdar.db.submissions import (
+from maqati3.db.submissions import (
     PgFingerprintIndex,
     PgKnownHashes,
     PgSubmissions,
     is_submission_key,
     submission_key,
 )
-from masdar.dedup.fingerprint import (
+from maqati3.dedup.fingerprint import (
     MIN_SHARED_KEYS,
     Fingerprint,
     encode_items,
@@ -43,7 +43,7 @@ def test_a_submission_key_is_distinguishable_from_an_entry_id() -> None:
 
 
 REPO_MIGRATIONS = Path(__file__).resolve().parents[2] / "db" / "migrations"
-SCHEMA = "masdar_subtest"
+SCHEMA = "maqati3_subtest"
 
 requires_database = pytest.mark.skipif(
     not os.environ.get("DATABASE_URL"),
@@ -56,8 +56,8 @@ def migrated_schema() -> Iterator[tuple[Any, Any]]:
     """A throwaway schema with every migration applied, dropped on the way out."""
     import psycopg
 
-    from masdar.db.migrate import migrate
-    from masdar.db.sql import PsycopgExecutor
+    from maqati3.db.migrate import migrate
+    from maqati3.db.sql import PsycopgExecutor
 
     with psycopg.connect(os.environ["DATABASE_URL"], autocommit=True) as connection:
         connection.execute(f"DROP SCHEMA IF EXISTS {SCHEMA} CASCADE")

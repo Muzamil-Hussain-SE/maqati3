@@ -16,7 +16,7 @@ from pathlib import Path
 
 import yaml
 
-from masdar.db.sql import Executor
+from maqati3.db.sql import Executor
 
 
 @dataclass(frozen=True, slots=True)

@@ -7,8 +7,8 @@ purpose. The database is the last line; this is the one that can say *why*.
 
 from dataclasses import dataclass
 
-from masdar.domain import Attribution, ContentClass, SpanRole, Visibility
-from masdar.register.states import ReviewState
+from maqati3.domain import Attribution, ContentClass, SpanRole, Visibility
+from maqati3.register.states import ReviewState
 
 
 @dataclass(frozen=True, slots=True)

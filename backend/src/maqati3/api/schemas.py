@@ -14,14 +14,14 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-from masdar.api.repository import (
+from maqati3.api.repository import (
     EntryRow,
     ScholarRef,
     ScholarRow,
     SegmentRow,
     TopicRow,
 )
-from masdar.domain import (
+from maqati3.domain import (
     Attribution,
     ContentClass,
     Lang,

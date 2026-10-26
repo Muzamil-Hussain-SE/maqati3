@@ -15,10 +15,10 @@ from typing import Any
 
 import pytest
 
-from masdar.api.repository import EntryLanguageRow
-from masdar.db.library import PgLibraryRepository
-from masdar.db.seed import load_scholars, load_topics, seed_reference
-from masdar.domain import Attribution, ContentClass, Lang, ReviewState, SpanRole, Visibility
+from maqati3.api.repository import EntryLanguageRow
+from maqati3.db.library import PgLibraryRepository
+from maqati3.db.seed import load_scholars, load_topics, seed_reference
+from maqati3.domain import Attribution, ContentClass, Lang, ReviewState, SpanRole, Visibility
 
 REFERENCE = Path(__file__).resolve().parents[2] / "reference"
 
@@ -58,7 +58,7 @@ def test_the_real_topic_list_parses_into_parents_and_children() -> None:
 # --------------------------------------------------------------- against Postgres
 
 REPO_MIGRATIONS = Path(__file__).resolve().parents[2] / "db" / "migrations"
-SCHEMA = "masdar_libtest"
+SCHEMA = "maqati3_libtest"
 
 requires_database = pytest.mark.skipif(
     not os.environ.get("DATABASE_URL"),
@@ -70,8 +70,8 @@ requires_database = pytest.mark.skipif(
 def migrated_schema() -> Iterator[tuple[Any, Any]]:
     import psycopg
 
-    from masdar.db.migrate import migrate
-    from masdar.db.sql import PsycopgExecutor
+    from maqati3.db.migrate import migrate
+    from maqati3.db.sql import PsycopgExecutor
 
     with psycopg.connect(os.environ["DATABASE_URL"], autocommit=True) as connection:
         connection.execute(f"DROP SCHEMA IF EXISTS {SCHEMA} CASCADE")
@@ -252,9 +252,9 @@ def test_integration_the_pooled_executor_lets_only_one_of_two_racing_uploads_win
     # two request threads, each with its own pooled connection and transaction.
     from psycopg_pool import ConnectionPool
 
-    from masdar.db.sql import PooledExecutor
-    from masdar.db.submissions import PgSubmissions
-    from masdar.dedup.fingerprint import Fingerprint
+    from maqati3.db.sql import PooledExecutor
+    from maqati3.db.submissions import PgSubmissions
+    from maqati3.dedup.fingerprint import Fingerprint
 
     with migrated_schema():
         url = os.environ["DATABASE_URL"]

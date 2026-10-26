@@ -7,8 +7,8 @@ from contextlib import AbstractAsyncContextManager
 
 from fastapi import FastAPI
 
-from masdar.api.repository import LibraryRepository
-from masdar.api.routes import (
+from maqati3.api.repository import LibraryRepository
+from maqati3.api.routes import (
     get_extractor,
     get_fingerprint_index,
     get_known_hashes,
@@ -18,9 +18,9 @@ from masdar.api.routes import (
     get_upload_store,
     router,
 )
-from masdar.api.uploads import KnownHashes, Submissions, UploadStore
-from masdar.dedup.fingerprint import FingerprintExtractor
-from masdar.dedup.triage import FingerprintIndex
+from maqati3.api.uploads import KnownHashes, Submissions, UploadStore
+from maqati3.dedup.fingerprint import FingerprintExtractor
+from maqati3.dedup.triage import FingerprintIndex
 
 
 def create_app(
@@ -41,7 +41,7 @@ def create_app(
     are optional: an app built without them still serves the library, and the upload
     route fails loudly instead of half-working.
     """
-    app = FastAPI(title="masdar", version="0.1.0", lifespan=lifespan)
+    app = FastAPI(title="maqati3", version="0.1.0", lifespan=lifespan)
     app.include_router(router)
     app.dependency_overrides[get_repository] = lambda: repository
     if store is not None:

@@ -13,8 +13,8 @@ import random
 from collections.abc import Sequence, Set
 from pathlib import Path
 
-from masdar.dedup.fingerprint import ITEM_MS, Fingerprint, index_keys
-from masdar.dedup.triage import (
+from maqati3.dedup.fingerprint import ITEM_MS, Fingerprint, index_keys
+from maqati3.dedup.triage import (
     ExactDuplicate,
     FingerprintCandidates,
     NewUpload,

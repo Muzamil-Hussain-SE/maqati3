@@ -1,22 +1,25 @@
-# CLAUDE.md — masdar
+# CLAUDE.md — maqati3
 
 ## What This Repo Is
 
-**Masdar** (مصدر, "source") is an archive of the recorded fatāwā of the scholars:
+**Maqati3** is an archive of the recorded fatāwā of the scholars:
 audio with an Arabic transcript and English and German translations, every line anchored
 to the exact second in the recording, organised by topic and scholar. On top of it sits a
 search tool that answers a question by pointing at the scholars' own words.
 
 The product is one sentence: **show me where he said it.**
 
-`masdar` is a working name — cheap to change while the site is not public, expensive
-after. The repo is public and open source.
+`maqati3` is a working name — cheap to change while the site is not public, expensive
+after. Until 2026-10-27 the project was called `masdar` (مصدر, "source"): old commits,
+`docs/raw/` and the three-draft comparison in `docs/ARCHITECTURE.md` still use that name,
+on purpose, because they record what was said at the time. The repo is public and open
+source.
 
 **Status: bulk upload is built and deployed** on one Hetzner server behind a provisional
 DuckDNS name (`docs/BETRIEB.md`). Contributors upload up to 20 files at once
 (`/{locale}/upload#k=<UPLOAD_KEY>`), every file is checked live against the archive and
 against other pending uploads (SHA-256, then Chromaprint by bit error rate), the
-contributor decides on candidates, and kept uploads wait in `python -m masdar inbox` for
+contributor decides on candidates, and kept uploads wait in `python -m maqati3 inbox` for
 an admin. Not built yet: the ASR draft pipeline, and registering an upload as an entry.
 
 ## The Constraint Everything Else Bends Around

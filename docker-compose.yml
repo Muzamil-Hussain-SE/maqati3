@@ -4,8 +4,8 @@ services:
     # an unpinned image would make that jump on an ordinary `docker compose pull`.
     image: paradedb/paradedb:0.26.3-pg17
     environment:
-      POSTGRES_DB: masdar
-      POSTGRES_USER: masdar
+      POSTGRES_DB: maqati3
+      POSTGRES_USER: maqati3
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-devonly}
     ports:
       - "127.0.0.1:5432:5432"
@@ -13,7 +13,7 @@ services:
       - pgdata:/var/lib/postgresql/data
       - ./db/migrations:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U masdar -d masdar"]
+      test: ["CMD-SHELL", "pg_isready -U maqati3 -d maqati3"]
       interval: 5s
       timeout: 3s
       retries: 20

@@ -5,7 +5,7 @@
  * A contributor says who they are and nothing else: which scholar a file is, and how
  * sure anyone is, is settled when an admin registers it (migration 0004).
  *
- * The server enforces every rule that matters (backend/src/masdar/api/routes.py); the
+ * The server enforces every rule that matters (backend/src/maqati3/api/routes.py); the
  * checks here only explain them before a request is made, in the contributor's words.
  */
 

@@ -18,8 +18,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
-from masdar.dedup.exact import find_exact_duplicate
-from masdar.dedup.fingerprint import (
+from maqati3.dedup.exact import find_exact_duplicate
+from maqati3.dedup.fingerprint import (
     Fingerprint,
     FingerprintExtractor,
     FingerprintMatch,

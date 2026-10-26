@@ -18,8 +18,8 @@ import pytest
 from fastapi.testclient import TestClient
 from httpx import Response
 
-from masdar.api.app import create_app
-from masdar.api.repository import (
+from maqati3.api.app import create_app
+from maqati3.api.repository import (
     Attribution,
     EntryLanguageRow,
     EntryRow,
@@ -28,11 +28,11 @@ from masdar.api.repository import (
     ScholarRef,
     Visibility,
 )
-from masdar.api.uploads import (
+from maqati3.api.uploads import (
     StagedUpload,
     submission_key,
 )
-from masdar.dedup.fingerprint import ITEM_MS, Fingerprint, UnreadableMedia, index_keys
+from maqati3.dedup.fingerprint import ITEM_MS, Fingerprint, UnreadableMedia, index_keys
 
 UTHAYMIN = ScholarRef(id="ibn-uthaymin", name_ar="ابن عثيمين", name_en="Ibn ʿUthaymīn")
 

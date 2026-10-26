@@ -2,7 +2,7 @@
 
 import pytest
 
-from masdar.dedup.url import normalize_source_url
+from maqati3.dedup.url import normalize_source_url
 
 
 def test_input_that_is_not_a_url_is_flagged_instead_of_raising() -> None:

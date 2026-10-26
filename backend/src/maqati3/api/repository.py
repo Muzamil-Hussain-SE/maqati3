@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Protocol
 
-from masdar.domain import (
+from maqati3.domain import (
     Attribution,
     ContentClass,
     Lang,

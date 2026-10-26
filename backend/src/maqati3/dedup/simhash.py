@@ -7,7 +7,7 @@ character shingles, which degrade gracefully under substituted words.
 
 The caller passes already normalised text (``segment_text.text_norm``: tashkeel removed,
 alef/hamza unified, punctuation stripped). This module deliberately does not import
-``masdar.text`` and does no normalisation of its own: a hash computed over differently
+``maqati3.text`` and does no normalisation of its own: a hash computed over differently
 normalised text is silently incomparable, so normalisation must happen once, upstream,
 and be visible in the database.
 """

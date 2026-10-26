@@ -10,11 +10,11 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Response, UploadFile
 from fastapi.responses import FileResponse
 
-from masdar.api.repository import (
+from maqati3.api.repository import (
     EntryRow,
     LibraryRepository,
 )
-from masdar.api.schemas import (
+from maqati3.api.schemas import (
     EntryOut,
     EntryPageOut,
     ScholarListItem,
@@ -28,7 +28,7 @@ from masdar.api.schemas import (
     build_topic_tree,
     render_webvtt,
 )
-from masdar.api.uploads import (
+from maqati3.api.uploads import (
     SUBMISSION_PREFIX,
     KnownHashes,
     Submissions,
@@ -36,19 +36,19 @@ from masdar.api.uploads import (
     UploadTooLarge,
     is_submission_key,
 )
-from masdar.dedup.fingerprint import FingerprintExtractor, UnreadableMedia
-from masdar.dedup.triage import (
+from maqati3.dedup.fingerprint import FingerprintExtractor, UnreadableMedia
+from maqati3.dedup.triage import (
     ExactDuplicate,
     FingerprintCandidates,
     FingerprintIndex,
     triage_upload,
 )
-from masdar.domain import (
+from maqati3.domain import (
     Lang,
     ReviewState,
     Visibility,
 )
-from masdar.register.gates import can_publish
+from maqati3.register.gates import can_publish
 
 router = APIRouter()
 

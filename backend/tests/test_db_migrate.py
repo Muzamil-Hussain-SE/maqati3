@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-from masdar.db.migrate import (
+from maqati3.db.migrate import (
     ChecksumMismatch,
     DuplicateMigrationVersion,
     MalformedMigrationName,
@@ -239,9 +239,9 @@ requires_database = pytest.mark.skipif(
 def test_integration_repo_migrations_apply_from_scratch_and_are_idempotent() -> None:
     import psycopg
 
-    from masdar.db.sql import PsycopgExecutor
+    from maqati3.db.sql import PsycopgExecutor
 
-    schema = "masdar_itest"
+    schema = "maqati3_itest"
     with psycopg.connect(os.environ["DATABASE_URL"], autocommit=True) as connection:
         connection.execute(f"DROP SCHEMA IF EXISTS {schema} CASCADE")
         connection.execute(f"CREATE SCHEMA {schema}")

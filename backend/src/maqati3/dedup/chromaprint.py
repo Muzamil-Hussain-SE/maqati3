@@ -11,7 +11,7 @@ import json
 import subprocess
 from pathlib import Path
 
-from masdar.dedup.fingerprint import ALGORITHM, Fingerprint, UnreadableMedia
+from maqati3.dedup.fingerprint import ALGORITHM, Fingerprint, UnreadableMedia
 
 #: Long enough for a two-hour lecture; a hung decoder must not hold a request forever.
 DEFAULT_TIMEOUT_S = 600

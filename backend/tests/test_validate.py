@@ -1,7 +1,7 @@
 """Behaviour of the contributor-facing transcript validator."""
 
-from masdar.text.transcript import parse_transcript
-from masdar.text.validate import validate_transcripts
+from maqati3.text.transcript import parse_transcript
+from maqati3.text.validate import validate_transcripts
 
 
 def test_validate_transcripts_reports_a_translation_with_fewer_rows() -> None:

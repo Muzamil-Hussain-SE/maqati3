@@ -1,4 +1,4 @@
-"""`python -m masdar migrate | seed | serve | sweep | inbox`.
+"""`python -m maqati3 migrate | seed | serve | sweep | inbox`.
 
 The first three run in that order on a fresh machine and again after every deploy; each
 is safe to repeat. Migrations are forward-only and skip what is applied; seeding upserts
@@ -15,12 +15,12 @@ import sys
 
 import psycopg
 
-from masdar.db.migrate import migrate
-from masdar.db.seed import load_scholars, load_topics, seed_reference
-from masdar.db.sql import PsycopgExecutor
-from masdar.db.submissions import PgSubmissions
-from masdar.server import Settings, build_app, sweep_staging
-from masdar.staging import LocalUploadStore
+from maqati3.db.migrate import migrate
+from maqati3.db.seed import load_scholars, load_topics, seed_reference
+from maqati3.db.sql import PsycopgExecutor
+from maqati3.db.submissions import PgSubmissions
+from maqati3.server import Settings, build_app, sweep_staging
+from maqati3.staging import LocalUploadStore
 
 
 def print_inbox(submissions: PgSubmissions) -> None:
@@ -37,7 +37,7 @@ def print_inbox(submissions: PgSubmissions) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="masdar")
+    parser = argparse.ArgumentParser(prog="maqati3")
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("migrate", help="apply pending database migrations")
     commands.add_parser("seed", help="load reference/ scholars and topics")

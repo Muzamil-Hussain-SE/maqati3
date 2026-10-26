@@ -1,6 +1,6 @@
 """Behaviour of the Arabic search normalisation."""
 
-from masdar.text.normalize import normalize_ar
+from maqati3.text.normalize import normalize_ar
 
 
 def test_normalize_ar_removes_tashkeel_marks() -> None:

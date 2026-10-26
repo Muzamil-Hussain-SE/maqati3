@@ -11,9 +11,9 @@ from pathlib import Path
 
 import pytest
 
-from masdar.api.uploads import UploadTooLarge
-from masdar.dedup.exact import sha256_hex
-from masdar.staging import LocalUploadStore
+from maqati3.api.uploads import UploadTooLarge
+from maqati3.dedup.exact import sha256_hex
+from maqati3.staging import LocalUploadStore
 
 VIDEO = b"pretend phone video bytes" * 1000
 

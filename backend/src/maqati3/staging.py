@@ -12,7 +12,7 @@ import uuid
 from pathlib import Path
 from typing import BinaryIO
 
-from masdar.api.uploads import StagedUpload, UploadTooLarge
+from maqati3.api.uploads import StagedUpload, UploadTooLarge
 
 #: A phone video of a long lecture runs to about this; anything larger is far more
 #: likely a mistake (a whole camera roll zipped, a raw screen capture) than a fatwa.

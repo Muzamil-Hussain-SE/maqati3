@@ -1,6 +1,6 @@
 """Behaviour of the supplier line-format parser."""
 
-from masdar.text.transcript import parse_transcript
+from maqati3.text.transcript import parse_transcript
 
 
 def test_parse_transcript_reads_timestamp_and_text_of_a_single_line() -> None:

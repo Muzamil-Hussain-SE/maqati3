@@ -20,13 +20,13 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
-from masdar.api.uploads import (
+from maqati3.api.uploads import (
     SUBMISSION_PREFIX,
     is_submission_key,
     submission_key,
 )
-from masdar.db.sql import Executor
-from masdar.dedup.fingerprint import (
+from maqati3.db.sql import Executor
+from maqati3.dedup.fingerprint import (
     ALGORITHM,
     MIN_SHARED_KEYS,
     Fingerprint,

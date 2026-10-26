@@ -1,5 +1,5 @@
 /**
- * Duplicate pre-check for the Masdar intake form.
+ * Duplicate pre-check for the Maqati3 intake form.
  *
  * Runs in the register spreadsheet on every form submission. Normalises the submitted
  * source URL, compares it against every row already in the sheet, and — on a hit —
@@ -132,7 +132,7 @@ function notifyContributor(sheet, headers, row, label) {
   ].join('\n');
 
   try {
-    MailApp.sendEmail(to, 'Masdar — we may already have this recording', body);
+    MailApp.sendEmail(to, 'Maqati3 — we may already have this recording', body);
   } catch (err) {
     console.error('Could not email ' + to + ': ' + err);
   }

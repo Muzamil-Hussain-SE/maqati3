@@ -1,7 +1,7 @@
 """The job queue: one Postgres table, `SELECT … FOR UPDATE SKIP LOCKED`.
 
 Chosen over a broker in `docs/ARCHITECTURE.md`. Control flow lives here, the statements
-in `masdar.db.sql`, and execution behind the `Executor` protocol — so the claim/retry
+in `maqati3.db.sql`, and execution behind the `Executor` protocol — so the claim/retry
 logic is testable without a database.
 """
 
@@ -13,7 +13,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any, cast
 from uuid import uuid4
 
-from masdar.db.sql import (
+from maqati3.db.sql import (
     CLAIM_JOB,
     HEARTBEAT_JOB,
     MARK_JOB_DONE,
