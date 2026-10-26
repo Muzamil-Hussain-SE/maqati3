@@ -27,21 +27,6 @@
     "intro": "Wähle bis zu 20 Video- oder Audiodateien auf einmal. Jede wird sofort geprüft: Ist sie schon im Archiv, siehst du es hier – und du entscheidest.",
     "badLink": "Dieser Link ist unvollständig. Bitte frag den Admin noch einmal nach dem Upload-Link.",
     "yourName": "Dein Name",
-    "aboutFiles": "Zu diesen Dateien",
-    "aboutFilesHint": "Gilt für alle Dateien unten. Für eine einzelne Datei kannst du es ändern.",
-    "scholar": "Welcher Gelehrte?",
-    "scholarChoose": "Auswählen…",
-    "scholarOther": "Nicht in der Liste",
-    "scholarOtherName": "Wer ist es?",
-    "confidence": "Bist du sicher, dass es wirklich dieser Gelehrte ist?",
-    "confidenceConfirmed": "Ja – offizieller Kanal oder offizielle Webseite",
-    "confidenceProbably": "Ziemlich sicher",
-    "confidenceNotSure": "Nicht sicher",
-    "confidenceNote": "„Nicht sicher“ ist immer die richtige Antwort, wenn du nicht sicher bist. Eine Aufnahme unter falschem Namen ist der schlimmste Fehler, den dieses Archiv machen kann.",
-    "topic": "Worum geht es? (optional)",
-    "topicNone": "Weiß nicht",
-    "source": "Woher hast du sie?",
-    "sourcePlaceholder": "z. B. die WhatsApp-Gruppe von …, ein YouTube-Kanal, eine CD",
     "choose": "Videos oder Audio auswählen",
     "dropHere": "oder hierher ziehen",
     "tooMany": "Nur {max} Dateien pro Durchgang. {count} wurden weggelassen – schick erst diesen Durchgang ab, dann füge sie hinzu.",
@@ -63,7 +48,6 @@
       "upload_key_required": "Der Upload-Link gilt nicht mehr. Bitte frag den Admin nach dem aktuellen Link.",
       "network": "Die Verbindung wurde unterbrochen.",
       "not_awaiting_decision": "Diese Datei wurde schon gesendet.",
-      "unknown_scholar_or_topic": "Gelehrter oder Thema wurde nicht erkannt. Bitte neu auswählen.",
       "other": "Etwas ist schiefgegangen ({code})."
     },
     "retry": "Nochmal versuchen",
@@ -77,17 +61,16 @@
       "same": "Dieselbe Aufnahme – nicht senden",
       "different": "Andere Aufnahme – senden"
     },
-    "perFile": "Für diese Datei ändern",
     "send": "{count, plural, one {# Datei} other {# Dateien}} senden",
     "blocked": {
       "busy": "Warte, bis jede Datei geprüft ist.",
       "undecided": "Entscheide für jede Datei mit „bitte prüfen“.",
-      "scholar": "Gib an, welcher Gelehrte es ist (oder „Nicht in der Liste“ und den Namen).",
-      "confidence": "Gib an, wie sicher du bist, dass es dieser Gelehrte ist.",
-      "empty": "Es gibt nichts Neues zu senden."
+      "empty": "Es gibt nichts Neues zu senden.",
+      "name": "Gib zuerst deinen Namen ein."
     },
     "done": "Jazākallāhu khayran. {sent, plural, one {# Datei wurde} other {# Dateien wurden}} gesendet und werden geprüft.",
     "more": "Weitere hochladen",
-    "leaveWarning": "Einige Dateien wurden noch nicht gesendet."
+    "leaveWarning": "Einige Dateien wurden noch nicht gesendet.",
+    "yourNameHint": "Damit wir wissen, von wem die Dateien kommen."
   }
 }

@@ -27,21 +27,6 @@
     "intro": "Choose up to 20 videos or audio files at once. Each one is checked straight away: if it is already in the archive you will see it here, and you decide.",
     "badLink": "This link is incomplete. Please ask the admin for the upload link again.",
     "yourName": "Your name",
-    "aboutFiles": "About these files",
-    "aboutFilesHint": "Applies to every file below. You can change it for a single file.",
-    "scholar": "Which scholar?",
-    "scholarChoose": "Choose…",
-    "scholarOther": "Not in the list",
-    "scholarOtherName": "Who is it?",
-    "confidence": "Are you sure it is really this scholar?",
-    "confidenceConfirmed": "Yes — official channel or website",
-    "confidenceProbably": "Pretty sure",
-    "confidenceNotSure": "Not sure",
-    "confidenceNote": "“Not sure” is the right answer whenever you are not sure. A recording under the wrong name is the worst mistake this archive can make.",
-    "topic": "What is it about? (optional)",
-    "topicNone": "Don’t know",
-    "source": "Where did you get them?",
-    "sourcePlaceholder": "e.g. the WhatsApp group of …, a YouTube channel, a CD",
     "choose": "Choose videos or audio",
     "dropHere": "or drop them here",
     "tooMany": "Only {max} files per batch. {count} were left out — send this batch first, then add them.",
@@ -63,7 +48,6 @@
       "upload_key_required": "The upload link is not valid any more. Please ask the admin for the current link.",
       "network": "The connection was interrupted.",
       "not_awaiting_decision": "This file was already sent.",
-      "unknown_scholar_or_topic": "The scholar or topic was not recognised. Please choose again.",
       "other": "Something went wrong ({code})."
     },
     "retry": "Try again",
@@ -77,17 +61,16 @@
       "same": "Same recording — don’t send",
       "different": "Different recording — send it"
     },
-    "perFile": "Change for this file",
     "send": "Send {count, plural, one {# file} other {# files}}",
     "blocked": {
       "busy": "Wait until every file is checked.",
       "undecided": "Decide for every file marked “please check”.",
-      "scholar": "Say which scholar it is (or “Not in the list” and the name).",
-      "confidence": "Say how sure you are that it is this scholar.",
-      "empty": "There is nothing new to send."
+      "empty": "There is nothing new to send.",
+      "name": "Enter your name first."
     },
     "done": "Jazākallāhu khayran. {sent, plural, one {# file was} other {# files were}} sent and will be reviewed.",
     "more": "Upload more",
-    "leaveWarning": "Some files have not been sent yet."
+    "leaveWarning": "Some files have not been sent yet.",
+    "yourNameHint": "So we know who sent these files."
   }
 }

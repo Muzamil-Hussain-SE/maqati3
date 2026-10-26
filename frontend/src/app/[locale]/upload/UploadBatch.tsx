@@ -2,26 +2,14 @@
 
 import { useLocale, useTranslations } from 'next-intl';
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
-import {
-  UploadError,
-  fetchScholars,
-  fetchTopics,
-  mediaUrl,
-  sendDecision,
-  uploadFile,
-  type ScholarItem,
-  type TopicItem,
-} from '@/lib/uploads/api';
+import { UploadError, mediaUrl, sendDecision, uploadFile } from '@/lib/uploads/api';
 import {
   MAX_FILES,
   blockers,
   decisionFor,
-  effectiveDetails,
   formatDuration,
   parseUploadKey,
   takeFiles,
-  type Confidence,
-  type Details,
   type MatchOut,
   type Row,
 } from '@/lib/uploads/batch';
@@ -34,14 +22,6 @@ import {
 const CONCURRENT_UPLOADS = 1;
 
 const CONTRIBUTOR_KEY = 'masdar.contributor';
-
-const EMPTY_DETAILS: Details = {
-  scholarId: null,
-  scholarOther: '',
-  confidence: null,
-  topicId: null,
-  sourceNote: '',
-};
 
 function remember(name: string) {
   try {
@@ -82,20 +62,12 @@ export default function UploadBatch() {
   const [contributor, setContributor] = useState(() =>
     typeof window === 'undefined' ? '' : recall(),
   );
-  const [scholars, setScholars] = useState<ScholarItem[]>([]);
-  const [topics, setTopics] = useState<TopicItem[]>([]);
-  const [defaults, setDefaults] = useState<Details>(EMPTY_DETAILS);
   const [rows, setRows] = useState<Row[]>([]);
   const [files, setFiles] = useState<Record<string, File>>({});
   const [overflow, setOverflow] = useState(0);
   const [sentCount, setSentCount] = useState<number | null>(null);
   // Which rows' uploads have been started. Effect-only bookkeeping, never rendered.
   const started = useRef(new Set<string>());
-
-  useEffect(() => {
-    fetchScholars().then(setScholars, () => setScholars([]));
-    fetchTopics().then(setTopics, () => setTopics([]));
-  }, []);
 
   const update = useCallback((id: string, patch: Partial<Row>) => {
     setRows((current) => current.map((r) => (r.id === id ? { ...r, ...patch } : r)));
@@ -147,7 +119,6 @@ export default function UploadBatch() {
         progress: 0,
         check: null,
         choice: null,
-        overrides: null,
         error: null,
       } satisfies Row;
     });
@@ -177,7 +148,7 @@ export default function UploadBatch() {
     remember(contributor);
     let sent = 0;
     for (const row of rows) {
-      const decision = decisionFor(row, defaults, contributor);
+      const decision = decisionFor(row, contributor);
       if (!decision) continue;
       update(row.id, { phase: 'sending', error: null });
       try {
@@ -199,8 +170,8 @@ export default function UploadBatch() {
     setOverflow(0);
   };
 
-  const blocked = blockers(rows, defaults);
-  const sendable = rows.filter((r) => decisionFor(r, defaults, contributor) !== null).length;
+  const blocked = blockers(rows, contributor);
+  const sendable = rows.filter((r) => decisionFor(r, contributor) !== null).length;
   const finished =
     sentCount !== null && rows.every((r) => !['checked', 'sending', 'queued', 'uploading', 'checking'].includes(r.phase) || r.check?.status === 'rejected');
 
@@ -213,6 +184,7 @@ export default function UploadBatch() {
     <div className="space-y-8">
       <label className="block">
         <span className="mb-1 block text-sm font-semibold">{t('yourName')}</span>
+        <span className="mb-1 block text-xs text-neutral-600 dark:text-neutral-400">{t('yourNameHint')}</span>
         <input
           className="w-full rounded-md border border-neutral-300 bg-transparent px-3 py-2 dark:border-neutral-700"
           value={contributor}
@@ -221,20 +193,6 @@ export default function UploadBatch() {
           autoComplete="name"
         />
       </label>
-
-      <section className="space-y-4 rounded-xl border border-neutral-200 p-4 dark:border-neutral-800">
-        <div>
-          <h2 className="text-lg font-semibold">{t('aboutFiles')}</h2>
-          <p className="text-sm text-neutral-600 dark:text-neutral-400">{t('aboutFilesHint')}</p>
-        </div>
-        <DetailsEditor
-          value={defaults}
-          onChange={(patch) => setDefaults((d) => ({ ...d, ...patch }))}
-          scholars={scholars}
-          topics={topics}
-          withSource
-        />
-      </section>
 
       <DropZone onFiles={addFiles} />
       {overflow > 0 && (
@@ -249,11 +207,7 @@ export default function UploadBatch() {
               row={row}
               file={files[row.id]}
               uploadKey={key}
-              defaults={defaults}
-              scholars={scholars}
-              topics={topics}
               onChoose={(choice) => update(row.id, { choice })}
-              onOverride={(patch) => update(row.id, { overrides: { ...row.overrides, ...patch } })}
               onRemove={() => removeRow(row)}
               onRetry={() => retry(row)}
             />
@@ -332,142 +286,23 @@ function DropZone({ onFiles }: { onFiles: (files: File[]) => void }) {
   );
 }
 
-function DetailsEditor({
-  value,
-  onChange,
-  scholars,
-  topics,
-  withSource = false,
-}: {
-  value: Details;
-  onChange: (patch: Partial<Details>) => void;
-  scholars: ScholarItem[];
-  topics: TopicItem[];
-  withSource?: boolean;
-}) {
-  const t = useTranslations('upload');
-  const locale = useLocale();
-  const [other, setOther] = useState(value.scholarId === null && value.scholarOther !== '');
-  const name = (s: { name_ar: string; name_en: string }) => (locale === 'ar' ? s.name_ar : s.name_en);
-  const sorted = useMemo(
-    () => [...scholars].sort((a, b) => name(a).localeCompare(name(b), locale)),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [scholars, locale],
-  );
-  const confidences: [Confidence, string][] = [
-    ['confirmed', t('confidenceConfirmed')],
-    ['probably', t('confidenceProbably')],
-    ['not_sure', t('confidenceNotSure')],
-  ];
-
-  return (
-    <div className="space-y-4">
-      <label className="block">
-        <span className="mb-1 block text-sm font-semibold">{t('scholar')}</span>
-        <select
-          className="w-full rounded-md border border-neutral-300 bg-transparent px-3 py-2 dark:border-neutral-700"
-          value={value.scholarId ?? (other ? '__other' : '')}
-          onChange={(e) => {
-            const v = e.target.value;
-            setOther(v === '__other');
-            onChange(v === '__other' || v === '' ? { scholarId: null } : { scholarId: v, scholarOther: '' });
-          }}
-        >
-          <option value="">{t('scholarChoose')}</option>
-          {sorted.map((s) => (
-            <option key={s.id} value={s.id}>
-              {name(s)}
-            </option>
-          ))}
-          <option value="__other">{t('scholarOther')}</option>
-        </select>
-      </label>
-      {other && (
-        <label className="block">
-          <span className="mb-1 block text-sm font-semibold">{t('scholarOtherName')}</span>
-          <input
-            className="w-full rounded-md border border-neutral-300 bg-transparent px-3 py-2 dark:border-neutral-700"
-            value={value.scholarOther}
-            onChange={(e) => onChange({ scholarOther: e.target.value })}
-          />
-        </label>
-      )}
-
-      <fieldset>
-        <legend className="mb-1 text-sm font-semibold">{t('confidence')}</legend>
-        <div className="space-y-1">
-          {confidences.map(([v, label]) => (
-            <label key={v} className="flex items-center gap-2">
-              <input type="radio" checked={value.confidence === v} onChange={() => onChange({ confidence: v })} />
-              <span>{label}</span>
-            </label>
-          ))}
-        </div>
-        <p className="mt-2 text-xs text-neutral-600 dark:text-neutral-400">{t('confidenceNote')}</p>
-      </fieldset>
-
-      <label className="block">
-        <span className="mb-1 block text-sm font-semibold">{t('topic')}</span>
-        <select
-          className="w-full rounded-md border border-neutral-300 bg-transparent px-3 py-2 dark:border-neutral-700"
-          value={value.topicId ?? ''}
-          onChange={(e) => onChange({ topicId: e.target.value || null })}
-        >
-          <option value="">{t('topicNone')}</option>
-          {topics.map((main) => (
-            <optgroup key={main.id} label={name(main)}>
-              <option value={main.id}>{name(main)}</option>
-              {main.children.map((sub) => (
-                <option key={sub.id} value={sub.id}>
-                  {name(sub)}
-                </option>
-              ))}
-            </optgroup>
-          ))}
-        </select>
-      </label>
-
-      {withSource && (
-        <label className="block">
-          <span className="mb-1 block text-sm font-semibold">{t('source')}</span>
-          <input
-            className="w-full rounded-md border border-neutral-300 bg-transparent px-3 py-2 dark:border-neutral-700"
-            value={value.sourceNote}
-            placeholder={t('sourcePlaceholder')}
-            onChange={(e) => onChange({ sourceNote: e.target.value })}
-          />
-        </label>
-      )}
-    </div>
-  );
-}
-
 function FileRow({
   row,
   file,
   uploadKey,
-  defaults,
-  scholars,
-  topics,
   onChoose,
-  onOverride,
   onRemove,
   onRetry,
 }: {
   row: Row;
   file: File | undefined;
   uploadKey: string;
-  defaults: Details;
-  scholars: ScholarItem[];
-  topics: TopicItem[];
   onChoose: (choice: 'keep' | 'drop') => void;
-  onOverride: (patch: Partial<Details>) => void;
   onRemove: () => void;
   onRetry: () => void;
 }) {
   const t = useTranslations('upload');
   const [showMine, setShowMine] = useState(false);
-  const [editing, setEditing] = useState(false);
   const mine = useMemo(() => (showMine && file ? URL.createObjectURL(file) : null), [showMine, file]);
   useEffect(() => () => {
     if (mine) URL.revokeObjectURL(mine);
@@ -475,7 +310,6 @@ function FileRow({
 
   const check = row.check;
   const isCandidate = row.phase === 'checked' && check?.status === 'candidates';
-  const keeps = row.phase === 'checked' && (check?.status === 'new' || (isCandidate && row.choice === 'keep'));
 
   let status: string;
   if (row.phase === 'uploading') status = t('status.uploading', { percent: Math.round(row.progress * 100) });
@@ -559,23 +393,6 @@ function FileRow({
         </div>
       )}
 
-      {keeps && (
-        <div>
-          <button type="button" onClick={() => setEditing((e) => !e)} className="text-sm underline">
-            {t('perFile')}
-          </button>
-          {editing && (
-            <div className="mt-3 border-s-2 border-neutral-300 ps-3 dark:border-neutral-700">
-              <DetailsEditor
-                value={effectiveDetails(row, defaults)}
-                onChange={onOverride}
-                scholars={scholars}
-                topics={topics}
-              />
-            </div>
-          )}
-        </div>
-      )}
     </li>
   );
 }

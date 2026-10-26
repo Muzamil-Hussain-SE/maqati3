@@ -2,6 +2,9 @@
  * The logic of the bulk upload page, without any of its UI: what the link's key is,
  * what each file sends when the batch goes out, and what still stands in the way.
  *
+ * A contributor says who they are and nothing else: which scholar a file is, and how
+ * sure anyone is, is settled when an admin registers it (migration 0004).
+ *
  * The server enforces every rule that matters (backend/src/masdar/api/routes.py); the
  * checks here only explain them before a request is made, in the contributor's words.
  */
@@ -28,18 +31,6 @@ export type CheckOut = {
   candidates: MatchOut[];
 };
 
-/** Form question 5: how sure the contributor is that it really is this scholar. */
-export type Confidence = 'confirmed' | 'probably' | 'not_sure';
-
-/** What the contributor says about a file; set once for the batch, overridable per file. */
-export type Details = {
-  scholarId: string | null;
-  scholarOther: string;
-  confidence: Confidence | null;
-  topicId: string | null;
-  sourceNote: string;
-};
-
 export type Phase =
   | 'queued'
   | 'uploading'
@@ -60,26 +51,14 @@ export type Row = {
   check: CheckOut | null;
   /** For a candidate: did the contributor say it is the same recording, or a different one? */
   choice: 'keep' | 'drop' | null;
-  overrides: Partial<Details> | null;
   error: string | null;
 };
 
-export type DecisionBody =
-  | { keep: false }
-  | {
-      keep: true;
-      contributor: string | null;
-      scholar_id: string | null;
-      scholar_other: string | null;
-      topic_id: string | null;
-      claimed_attribution: Confidence | null;
-      source_note: string | null;
-    };
+export type DecisionBody = { keep: false } | { keep: true; contributor: string };
 
 export type Blocker =
-  | { kind: 'busy' }
-  | { kind: 'empty' }
-  | { kind: 'undecided' | 'scholar' | 'confidence'; rowIds: string[] };
+  | { kind: 'busy' | 'empty' | 'name' }
+  | { kind: 'undecided'; rowIds: string[] };
 
 /** One batch, as the form had it: enough for a phone's worth of forwards at once. */
 export const MAX_FILES = 20;
@@ -100,15 +79,6 @@ export function takeFiles<T>(alreadyInBatch: number, files: T[]): { take: T[]; o
   return { take: files.slice(0, room), overflow: Math.max(0, files.length - room) };
 }
 
-export function effectiveDetails(row: Row, defaults: Details): Details {
-  return { ...defaults, ...(row.overrides ?? {}) };
-}
-
-function blankToNull(value: string): string | null {
-  const trimmed = value.trim();
-  return trimmed ? trimmed : null;
-}
-
 /** Whether this file goes out as "keep" when the batch is sent. */
 function willKeep(row: Row): boolean {
   if (row.phase !== 'checked' || row.check === null) return false;
@@ -119,7 +89,6 @@ function willKeep(row: Row): boolean {
 /** What this file sends, or null when it sends nothing. */
 export function decisionFor(
   row: Row,
-  defaults: Details,
   contributor: string,
 ): { sha256: string; body: DecisionBody } | null {
   if (row.phase !== 'checked' || row.check === null) return null;
@@ -127,24 +96,11 @@ export function decisionFor(
   if (status === 'rejected') return null;
   if (status === 'candidates' && row.choice === 'drop') return { sha256, body: { keep: false } };
   if (!willKeep(row)) return null;
-
-  const details = effectiveDetails(row, defaults);
-  return {
-    sha256,
-    body: {
-      keep: true,
-      contributor: blankToNull(contributor),
-      scholar_id: details.scholarId,
-      scholar_other: details.scholarId ? null : blankToNull(details.scholarOther),
-      topic_id: details.topicId,
-      claimed_attribution: details.confidence,
-      source_note: blankToNull(details.sourceNote),
-    },
-  };
+  return { sha256, body: { keep: true, contributor: contributor.trim() } };
 }
 
 /** Everything that still prevents the batch from being sent. Empty means ready. */
-export function blockers(rows: Row[], defaults: Details): Blocker[] {
+export function blockers(rows: Row[], contributor: string): Blocker[] {
   const found: Blocker[] = [];
   if (rows.some((r) => r.phase === 'queued' || r.phase === 'uploading' || r.phase === 'checking')) {
     found.push({ kind: 'busy' });
@@ -155,17 +111,7 @@ export function blockers(rows: Row[], defaults: Details): Blocker[] {
   );
   if (undecided.length) found.push({ kind: 'undecided', rowIds: undecided.map((r) => r.id) });
 
-  const kept = rows.filter(willKeep);
-  const noScholar = kept.filter((r) => {
-    const d = effectiveDetails(r, defaults);
-    return !d.scholarId && !blankToNull(d.scholarOther);
-  });
-  if (noScholar.length) found.push({ kind: 'scholar', rowIds: noScholar.map((r) => r.id) });
-
-  const noConfidence = kept.filter((r) => effectiveDetails(r, defaults).confidence === null);
-  if (noConfidence.length) {
-    found.push({ kind: 'confidence', rowIds: noConfidence.map((r) => r.id) });
-  }
+  if (rows.some(willKeep) && !contributor.trim()) found.push({ kind: 'name' });
 
   const anything = rows.some(
     (r) => willKeep(r) || (r.check?.status === 'candidates' && r.choice !== null),

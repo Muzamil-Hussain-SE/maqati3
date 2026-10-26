@@ -4,15 +4,6 @@
  */
 import type { CheckOut, DecisionBody } from './batch';
 
-export type ScholarItem = { id: string; name_ar: string; name_en: string; entry_count: number };
-
-export type TopicItem = {
-  id: string;
-  name_ar: string;
-  name_en: string;
-  children: TopicItem[];
-};
-
 /** A failed call, with the server's reason when it gave one (`no_readable_audio`, ...). */
 export class UploadError extends Error {
   constructor(
@@ -74,15 +65,6 @@ export async function sendDecision(sha256: string, body: DecisionBody, key: stri
   }
   if (!response.ok) throw errorFrom(response.status, await response.text());
 }
-
-async function getJson<T>(path: string): Promise<T> {
-  const response = await fetch(path);
-  if (!response.ok) throw errorFrom(response.status, await response.text());
-  return (await response.json()) as T;
-}
-
-export const fetchScholars = () => getJson<ScholarItem[]>('/api/v1/scholars');
-export const fetchTopics = () => getJson<TopicItem[]>('/api/v1/topics');
 
 /** Where a pending upload can be played for comparison. A <video src> cannot send a
  * header, so this one URL carries the key as ?k=. */
