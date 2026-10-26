@@ -4,9 +4,11 @@
 
 ## Auf einen Server bringen (Docker Compose)
 
-Getestet am 2026-10-25 lokal mit genau diesen Dateien (`deploy/`): Stack startet,
-Migrationen und Seed laufen beim Start, Upload über Caddy inkl. 208-MB-Video, Browser-
-Durchlauf in Chrome. **Auf einem echten Server noch nicht gelaufen.**
+Getestet mit genau diesen Dateien (`deploy/`): am 2026-10-25 lokal (Arm, Chrome-Durchlauf,
+208-MB-Video), am 2026-10-26 **auf einem echten Server** (Hetzner CPX12, x86, Ubuntu 26.04,
+Docker 29.9): Build, Start, echtes Let's-Encrypt-Zertifikat über Caddy, Test-Uploads
+(neu / identisch / neu kodierte Kopie / ohne Ton / Vorschau). Datenbank und Backend-Port
+sind von außen nicht erreichbar.
 
 1. **Server anlegen** (Hetzner Cloud Console): Ubuntu 24.04, Standort Nürnberg, Typ
    **CPX12** (1 vCPU, 2 GB RAM, 40 GB SSD; 11,49 €/Monat + 0,50 € IPv4, jeweils netto,
@@ -28,7 +30,7 @@ Durchlauf in Chrome. **Auf einem echten Server noch nicht gelaufen.**
 3. **Auf dem Server:**
    ```bash
    curl -fsSL https://get.docker.com | sh
-   git clone https://github.com/PSchmitz-Valckenberg/masdar.git && cd masdar/deploy
+   git clone https://github.com/PSchmitz-Valckenberg/masdar.git /opt/masdar && cd /opt/masdar/deploy
    cat > .env <<EOF
    DOMAIN=archiv.example.org
    POSTGRES_PASSWORD=$(openssl rand -hex 24)
@@ -77,7 +79,8 @@ erreicht deshalb nie Server-Logs oder Referrer. Nur in der Gruppe teilen.
 ## Für den Admin
 
 ```bash
-docker compose exec api python -m masdar inbox     # auf dem Server, in deploy/
+ssh root@<IP>                                      # ggf. -i <dein Schlüssel>
+cd /opt/masdar/deploy && docker compose exec api python -m masdar inbox
 ```
 
 listet abgeschickte Uploads mit Datei, Gelehrtem, Selbsteinschätzung, Quelle — und
