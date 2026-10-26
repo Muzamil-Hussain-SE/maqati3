@@ -8,11 +8,16 @@ Getestet am 2026-10-25 lokal mit genau diesen Dateien (`deploy/`): Stack startet
 Migrationen und Seed laufen beim Start, Upload über Caddy inkl. 208-MB-Video, Browser-
 Durchlauf in Chrome. **Auf einem echten Server noch nicht gelaufen.**
 
-1. **Server anlegen** (Hetzner Cloud Console): Ubuntu 24.04, Standort Deutschland,
-   Typ CX33 (4 vCPU, 8 GB, 80 GB) — oder CAX21 (Arm), falls CX nicht buchbar ist; die
-   Images bauen auf dem Server selbst, Arm geht. SSH-Key hinterlegen. **Backups
-   einschalten** (+20 %): Der Server hält die einzige Kopie jedes Uploads, bis ein Admin
-   ihn registriert.
+1. **Server anlegen** (Hetzner Cloud Console): Ubuntu 24.04, Standort Nürnberg, Typ
+   **CPX12** (1 vCPU, 2 GB RAM, 40 GB SSD; 11,49 €/Monat + 0,50 € IPv4, jeweils netto,
+   dazu MwSt.). Gemessen am laufenden Stack: alle vier Container zusammen ~0,35 GB RAM,
+   Frontend-Build in der Spitze ~0,35 GB, Images ~2,7 GB auf der Platte. Der kleinere
+   CPX02 (1 GB, 20 GB) wäre zu knapp, besonders die Platte; CPX22 (19,49 €) bräuchten wir
+   nicht. Später wächst man über Server-Upgrade oder ein Volume. SSH-Key hinterlegen.
+   **Backups einschalten** (+20 %), bevor echte Uploads kommen: Der Server hält die einzige
+   Kopie jedes Uploads, bis ein Admin ihn registriert. Danach einmal Swap anlegen (Puffer
+   beim Image-Build, Standardbefehle, auf Hetzner nicht getestet):
+   `fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile && echo '/swapfile none swap sw 0 0' >> /etc/fstab`
 2. **Domain**: A-Record auf die IPv4 des Servers setzen.
    *Vorläufig, solange der Projektname nicht feststeht:* kostenlos über duckdns.org (Login
    mit Google/GitHub, Namen wählen, Server-IP eintragen) und `DOMAIN=<name>.duckdns.org`.
