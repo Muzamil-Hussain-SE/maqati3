@@ -105,8 +105,7 @@ def test_a_contributor_uploads_keeps_and_is_protected_from_duplicates(
     kept = client.post(
         f"/api/v1/uploads/{first['sha256']}/decision",
         headers=KEYED,
-        json={"keep": True, "contributor": "Abdullah", "scholar_id": "ibn-uthaymin",
-              "claimed_attribution": "probably", "source_note": "WhatsApp group"},
+        json={"keep": True, "contributor": "Abdullah"},
     )
     assert kept.json() == {"sha256": first["sha256"], "status": "kept"}
 

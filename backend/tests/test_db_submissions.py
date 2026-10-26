@@ -20,12 +20,10 @@ from typing import Any
 
 import pytest
 
-from masdar.api.uploads import InvalidMetadata
 from masdar.db.submissions import (
     PgFingerprintIndex,
     PgKnownHashes,
     PgSubmissions,
-    SubmissionMetadata,
     is_submission_key,
     submission_key,
 )
@@ -35,7 +33,6 @@ from masdar.dedup.fingerprint import (
     encode_items,
     index_keys,
 )
-from masdar.domain import Attribution
 
 
 def test_a_submission_key_is_distinguishable_from_an_entry_id() -> None:
@@ -108,15 +105,7 @@ def seed_entry(connection: Any, entry_id: str, sha256: str, xs: list[int] | None
             )
 
 
-METADATA = SubmissionMetadata(
-    contributor="Abdullah",
-    scholar_id="ibn-uthaymin",
-    scholar_other=None,
-    topic_id=None,
-    claimed_attribution=Attribution.PROBABLY,
-    source_note="from the Uthaymin WhatsApp group",
-    note=None,
-)
+SENDER = "Abdullah"
 
 
 @requires_database
@@ -224,11 +213,8 @@ def test_integration_a_dropped_submission_leaves_no_keys_behind() -> None:
 
 
 @requires_database
-def test_integration_keeping_stores_the_contributors_claims_once() -> None:
+def test_integration_keeping_stores_the_sender_once() -> None:
     with migrated_schema() as (connection, executor):
-        connection.execute(
-            "INSERT INTO scholar (id, name_ar, name_en) VALUES ('ibn-uthaymin', 'ا', 'I')"
-        )
         submissions = PgSubmissions(executor)
         submissions.record(
             sha256="aaa",
@@ -238,22 +224,14 @@ def test_integration_keeping_stores_the_contributors_claims_once() -> None:
             candidate_keys=["uthaymin-000421"],
         )
 
-        assert submissions.keep("aaa", METADATA) is True
+        assert submissions.keep("aaa", SENDER) is True
         # A decision is made once; a replayed request must not overwrite it.
-        assert submissions.keep("aaa", METADATA) is False
+        assert submissions.keep("aaa", "Someone else") is False
 
         row = connection.execute(
-            "SELECT state, contributor, scholar_id, claimed_attribution, source_note, "
-            "candidate_keys FROM submission WHERE sha256 = 'aaa'"
+            "SELECT state, contributor, candidate_keys FROM submission WHERE sha256 = 'aaa'"
         ).fetchone()
-        assert row == (
-            "kept",
-            "Abdullah",
-            "ibn-uthaymin",
-            "probably",
-            "from the Uthaymin WhatsApp group",
-            ["uthaymin-000421"],
-        )
+        assert row == ("kept", "Abdullah", ["uthaymin-000421"])
 
 
 @requires_database
@@ -280,9 +258,6 @@ def test_integration_dropping_removes_the_submission_and_its_fingerprint() -> No
 @requires_database
 def test_integration_a_kept_submission_cannot_be_dropped_by_a_late_request() -> None:
     with migrated_schema() as (connection, executor):
-        connection.execute(
-            "INSERT INTO scholar (id, name_ar, name_en) VALUES ('ibn-uthaymin', 'ا', 'I')"
-        )
         submissions = PgSubmissions(executor)
         submissions.record(
             sha256="aaa",
@@ -291,7 +266,7 @@ def test_integration_a_kept_submission_cannot_be_dropped_by_a_late_request() -> 
             fingerprint=EMPTY,
             candidate_keys=[],
         )
-        submissions.keep("aaa", METADATA)
+        submissions.keep("aaa", SENDER)
 
         assert submissions.drop("aaa") is None
 
@@ -314,9 +289,9 @@ def test_integration_a_registered_submission_must_name_its_entry() -> None:
 
 
 @requires_database
-def test_integration_a_kept_submission_must_say_whose_words_these_are() -> None:
-    # The form's one required field. A kept upload with neither a known scholar nor a
-    # free-text name could never be attributed, so the schema refuses it outright.
+def test_integration_a_kept_submission_must_name_its_sender() -> None:
+    # Without a name nobody knows who to ask about the file, and the admin's inbox would
+    # list it as coming from no one. The schema refuses it, so no code path can forget.
     import psycopg
 
     with migrated_schema() as (connection, executor):
@@ -330,44 +305,34 @@ def test_integration_a_kept_submission_must_say_whose_words_these_are() -> None:
 
         with pytest.raises(psycopg.errors.CheckViolation):
             connection.execute("UPDATE submission SET state = 'kept' WHERE sha256 = 'aaa'")
+        with pytest.raises(psycopg.errors.CheckViolation):
+            connection.execute(
+                "UPDATE submission SET state = 'kept', contributor = '   ' WHERE sha256 = 'aaa'"
+            )
 
 
 @requires_database
-def test_integration_keeping_with_an_unknown_scholar_is_invalid_metadata() -> None:
-    # A foreign-key violation, translated at the boundary: the route turns this into a
-    # 422 the page can explain, instead of a 500 it cannot.
-    with migrated_schema() as (connection, executor):
-        submissions = PgSubmissions(executor)
-        submissions.record(
-            sha256="aaa",
-            original_name="clip.mp4",
-            staged_path=Path("/staging/1.mp4"),
-            fingerprint=EMPTY,
-            candidate_keys=[],
-        )
+def test_integration_an_upload_has_no_claims_about_the_scholar() -> None:
+    # Which scholar it is, and how sure anyone is, is settled when an admin registers the
+    # upload as an entry -- where `entry.attribution` starts at not_sure and gates
+    # publication. Nothing the uploader types can pre-fill that.
+    with migrated_schema() as (connection, _):
+        columns = {
+            row[0]
+            for row in connection.execute(
+                "SELECT column_name FROM information_schema.columns "
+                "WHERE table_schema = current_schema() AND table_name = 'submission'"
+            ).fetchall()
+        }
 
-        with pytest.raises(InvalidMetadata):
-            submissions.keep("aaa", METADATA)  # no scholar 'ibn-uthaymin' in this schema
-
-        state = connection.execute("SELECT state FROM submission WHERE sha256 = 'aaa'")
-        assert state.fetchone()[0] == "awaiting_decision"
-
-
-@requires_database
-def test_integration_a_submissions_staged_path_is_found_until_it_is_dropped() -> None:
-    with migrated_schema() as (_, executor):
-        submissions = PgSubmissions(executor)
-        submissions.record(
-            sha256="aaa",
-            original_name="clip.mp4",
-            staged_path=Path("/staging/1.mp4"),
-            fingerprint=EMPTY,
-            candidate_keys=[],
-        )
-
-        assert submissions.staged_path("aaa") == Path("/staging/1.mp4")
-        submissions.drop("aaa")
-        assert submissions.staged_path("aaa") is None
+        assert not columns & {
+            "scholar_id",
+            "scholar_other",
+            "topic_id",
+            "claimed_attribution",
+            "source_note",
+            "note",
+        }
 
 
 # --------------------------------------------------------------- abandoned uploads
@@ -405,9 +370,6 @@ def test_integration_an_abandoned_upload_no_longer_blocks_its_duplicates() -> No
 @requires_database
 def test_integration_a_kept_upload_never_expires() -> None:
     with migrated_schema() as (connection, executor):
-        connection.execute(
-            "INSERT INTO scholar (id, name_ar, name_en) VALUES ('ibn-uthaymin', 'ا', 'I')"
-        )
         submissions = PgSubmissions(executor)
         submissions.record(
             sha256="kept",
@@ -416,7 +378,7 @@ def test_integration_a_kept_upload_never_expires() -> None:
             fingerprint=fingerprint(RECORDING),
             candidate_keys=[],
         )
-        submissions.keep("kept", METADATA)
+        submissions.keep("kept", SENDER)
         backdate(connection, "kept", hours=24 * 90)
 
         assert PgKnownHashes(executor).known() == {"kept": "submission:kept"}
@@ -469,11 +431,8 @@ def test_integration_deciding_an_upload_that_was_swept_is_refused() -> None:
 
 
 @requires_database
-def test_integration_the_inbox_lists_kept_uploads_oldest_first_with_their_claims() -> None:
+def test_integration_the_inbox_lists_kept_uploads_oldest_first_with_their_sender() -> None:
     with migrated_schema() as (connection, executor):
-        connection.execute(
-            "INSERT INTO scholar (id, name_ar, name_en) VALUES ('ibn-uthaymin', 'ا', 'I')"
-        )
         submissions = PgSubmissions(executor)
         for sha, keys in (("first", ["uthaymin-000421"]), ("second", []), ("undecided", [])):
             submissions.record(
@@ -483,8 +442,8 @@ def test_integration_the_inbox_lists_kept_uploads_oldest_first_with_their_claims
                 fingerprint=EMPTY,
                 candidate_keys=keys,
             )
-        submissions.keep("first", METADATA)
-        submissions.keep("second", METADATA)
+        submissions.keep("first", SENDER)
+        submissions.keep("second", SENDER)
 
         inbox = submissions.inbox()
 
@@ -494,9 +453,6 @@ def test_integration_the_inbox_lists_kept_uploads_oldest_first_with_their_claims
         assert first.original_name == "first.mp4"
         assert first.staged_path == Path("/staging/first.mp4")
         assert first.contributor == "Abdullah"
-        assert first.scholar_id == "ibn-uthaymin"
-        assert first.claimed_attribution is Attribution.PROBABLY
-        assert first.source_note == "from the Uthaymin WhatsApp group"
         # Kept although it matched an entry: the first thing an admin should look at.
         assert first.kept_despite == ["uthaymin-000421"]
         assert inbox[1].kept_despite == []

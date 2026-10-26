@@ -29,9 +29,7 @@ from masdar.api.repository import (
     Visibility,
 )
 from masdar.api.uploads import (
-    InvalidMetadata,
     StagedUpload,
-    SubmissionMetadata,
     submission_key,
 )
 from masdar.dedup.fingerprint import ITEM_MS, Fingerprint, UnreadableMedia, index_keys
@@ -118,11 +116,10 @@ class FakeIndex:
 class FakeSubmissions:
     """Stands in for the submission table. Records what the route asked of it."""
 
-    def __init__(self, *, lose_race: bool = False, unknown_scholar: bool = False) -> None:
+    def __init__(self, *, lose_race: bool = False) -> None:
         self.lose_race = lose_race
-        self.unknown_scholar = unknown_scholar
         self.recorded: dict[str, dict[str, object]] = {}
-        self.kept: dict[str, SubmissionMetadata] = {}
+        self.kept: dict[str, str] = {}
 
     def record(
         self,
@@ -143,12 +140,10 @@ class FakeSubmissions:
         }
         return True
 
-    def keep(self, sha256: str, metadata: SubmissionMetadata) -> bool:
-        if self.unknown_scholar:
-            raise InvalidMetadata("unknown scholar")
+    def keep(self, sha256: str, contributor: str) -> bool:
         if sha256 not in self.recorded or sha256 in self.kept:
             return False
-        self.kept[sha256] = metadata
+        self.kept[sha256] = contributor
         return True
 
     def drop(self, sha256: str) -> Path | None:
@@ -380,20 +375,14 @@ def test_a_public_entry_match_is_not_marked_pending() -> None:
 
 # --------------------------------------------------------------- the contributor decides
 
-KEEP = {
-    "keep": True,
-    "contributor": "Abdullah",
-    "scholar_id": "ibn-uthaymin",
-    "claimed_attribution": "probably",
-    "source_note": "from the Uthaymin WhatsApp group",
-}
+KEEP = {"keep": True, "contributor": "Abdullah"}
 
 
 def decide(client: TestClient, body: dict[str, object], sha256: str = "freshhash") -> Response:
     return client.post(f"/api/v1/uploads/{sha256}/decision", json=body)
 
 
-def test_keeping_an_upload_stores_what_the_contributor_said() -> None:
+def test_keeping_an_upload_stores_who_sent_it() -> None:
     submissions = FakeSubmissions()
     client = client_for(submissions=submissions)
     upload(client)
@@ -402,54 +391,45 @@ def test_keeping_an_upload_stores_what_the_contributor_said() -> None:
 
     assert response.status_code == 200
     assert response.json() == {"sha256": "freshhash", "status": "kept"}
-    assert submissions.kept["freshhash"] == SubmissionMetadata(
-        contributor="Abdullah",
-        scholar_id="ibn-uthaymin",
-        scholar_other=None,
-        topic_id=None,
-        claimed_attribution=Attribution.PROBABLY,
-        source_note="from the Uthaymin WhatsApp group",
-        note=None,
-    )
+    assert submissions.kept["freshhash"] == "Abdullah"
 
 
-def test_keeping_needs_to_know_whose_words_these_are() -> None:
-    client = client_for()
-    upload(client)
-
-    response = decide(client, {**KEEP, "scholar_id": None, "scholar_other": "   "})
-
-    assert response.status_code == 422
-
-
-def test_a_scholar_not_in_the_list_can_be_named_freely() -> None:
+def test_the_senders_name_is_trimmed() -> None:
     submissions = FakeSubmissions()
     client = client_for(submissions=submissions)
     upload(client)
 
-    response = decide(client, {**KEEP, "scholar_id": None, "scholar_other": "Shaykh Rabi"})
+    decide(client, {"keep": True, "contributor": "  Abdullah \n"})
 
-    assert response.status_code == 200
-    assert submissions.kept["freshhash"].scholar_other == "Shaykh Rabi"
+    assert submissions.kept["freshhash"] == "Abdullah"
 
 
-def test_keeping_needs_the_contributors_confidence() -> None:
-    client = client_for()
+@pytest.mark.parametrize("body", [{"keep": True}, {"keep": True, "contributor": "   "}])
+def test_keeping_needs_a_name(body: dict[str, object]) -> None:
+    # Without it the admin's inbox lists the file as coming from no one.
+    submissions = FakeSubmissions()
+    client = client_for(submissions=submissions)
     upload(client)
 
-    body = {key: value for key, value in KEEP.items() if key != "claimed_attribution"}
-
-    assert decide(client, body).status_code == 422
-
-
-def test_keeping_with_a_scholar_or_topic_the_database_does_not_know_is_refused() -> None:
-    client = client_for(submissions=FakeSubmissions(unknown_scholar=True))
-    upload(client)
-
-    response = decide(client, KEEP)
+    response = decide(client, body)
 
     assert response.status_code == 422
-    assert response.json()["detail"] == "unknown_scholar_or_topic"
+    assert submissions.kept == {}
+
+
+def test_what_the_page_no_longer_asks_is_ignored_not_stored() -> None:
+    # A page from before this change, still open in a browser tab, sends the old fields.
+    # They must not fail the request, and nothing can be attributed from them.
+    submissions = FakeSubmissions()
+    client = client_for(submissions=submissions)
+    upload(client)
+
+    response = decide(
+        client, {**KEEP, "scholar_id": "ibn-baz", "claimed_attribution": "confirmed"}
+    )
+
+    assert response.status_code == 200
+    assert submissions.kept["freshhash"] == "Abdullah"
 
 
 def test_deciding_twice_is_refused() -> None:
