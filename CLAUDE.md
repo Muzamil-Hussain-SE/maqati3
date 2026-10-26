@@ -12,13 +12,12 @@ The product is one sentence: **show me where he said it.**
 `masdar` is a working name — cheap to change while the site is not public, expensive
 after. The repo is public and open source.
 
-**Status: bulk upload is built and runs end to end; not deployed yet.** Contributors
-upload up to 20 files at once (`/{locale}/upload#k=<UPLOAD_KEY>`), every file is checked
-live against the archive and against other pending uploads (SHA-256, then Chromaprint by
-bit error rate), the contributor decides on candidates, and kept uploads wait in
-`python -m masdar inbox` for an admin. Verified against real Postgres, fpcalc, ffmpeg
-and Chrome; how to run it: `docs/BETRIEB.md`. Not built yet: the ASR draft pipeline,
-registering an upload as an entry, deployment files (Docker/Caddy).
+**Status: bulk upload is built and deployed** on one Hetzner server behind a provisional
+DuckDNS name (`docs/BETRIEB.md`). Contributors upload up to 20 files at once
+(`/{locale}/upload#k=<UPLOAD_KEY>`), every file is checked live against the archive and
+against other pending uploads (SHA-256, then Chromaprint by bit error rate), the
+contributor decides on candidates, and kept uploads wait in `python -m masdar inbox` for
+an admin. Not built yet: the ASR draft pipeline, and registering an upload as an entry.
 
 ## The Constraint Everything Else Bends Around
 
@@ -146,7 +145,13 @@ practice: most contributors have phone-forwarded videos with no source URL at al
 10–20 at once — go through a dedicated upload page instead, because only that path can
 run SHA-256 and fingerprint checks *while the contributor is still there* and let them
 listen to a candidate match and decide themselves. A form cannot talk to the backend
-mid-submission. Access is an unlisted link, like the two Drive links, no login. Detail
+mid-submission. Access is an unlisted link, like the two Drive links, no login. **The
+page asks only for the sender's name** (decided 2026-10-26): a batch holds files of many
+scholars, so *which* scholar and *how sure* are settled when an admin registers the
+upload as an entry, where `entry.attribution` starts at `not_sure` and gates publication
+— nothing typed at upload time can pre-fill it (migration 0004). Open for the
+registration step: the entry id is `<scholar-id>-<6 digits>`, so the admin has to know
+the scholar at registration, before anyone transcribes. Detail
 and the reasoning for reversing the original no-upload-form decision: `docs/ARCHITECTURE.md`
 ("Revidiert 2026-10-25").
 

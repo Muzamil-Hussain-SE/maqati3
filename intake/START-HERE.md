@@ -21,10 +21,9 @@ upload link inside the group — it works for anyone who has it.)*
 This is the usual case: clips forwarded on WhatsApp, saved on your phone.
 
 1. Open the **upload link**. Type your name once — it is remembered.
-2. Say which scholar, how sure you are, and where you got them. This applies to every
-   file; you can change it for one file if needed.
-3. Tap **Choose videos or audio** and pick up to 20 from your gallery.
-4. Each file is checked straight away:
+2. Tap **Choose videos or audio** and pick up to 20 from your gallery. You do **not**
+   need to say which scholar it is; that is settled when the file is registered.
+3. Each file is checked straight away:
    - **Already in the archive** — the exact same file is there. Nothing to do; it was
      not uploaded twice.
    - **Possibly already in the archive** — the same recording, but a different file (a
@@ -32,7 +31,7 @@ This is the usual case: clips forwarded on WhatsApp, saved on your phone.
      **Different recording**. A scholar giving the same answer on another occasion *is*
      a different recording — send it.
    - **No sound that could be read** — a photo or a screen recording. Remove it.
-5. Tap **Send**. Done.
+4. Tap **Send**. Done.
 
 Send them within a day: files that were checked but never sent are removed after 24
 hours.
