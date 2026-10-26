@@ -29,10 +29,8 @@ def print_inbox(submissions: PgSubmissions) -> None:
         print("inbox is empty")
     for item in items:
         minutes, seconds = divmod(round(item.duration_ms / 1000), 60)
-        scholar = item.scholar_id or f"not in list: {item.scholar_other}"
         print(f"{item.received_at:%Y-%m-%d %H:%M}  {item.original_name}  ({minutes}:{seconds:02d})")
-        print(f"    scholar: {scholar}   contributor says: {item.claimed_attribution.value}")
-        print(f"    from: {item.contributor or '-'}   source: {item.source_note or '-'}")
+        print(f"    from: {item.contributor or '-'}")
         if item.kept_despite:
             print(f"    KEPT DESPITE A MATCH with {', '.join(item.kept_despite)} -- listen to both")
         print(f"    file: {item.staged_path}   sha256: {item.sha256}")

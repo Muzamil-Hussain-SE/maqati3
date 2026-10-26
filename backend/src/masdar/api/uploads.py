@@ -16,7 +16,6 @@ from pathlib import Path
 from typing import BinaryIO, Protocol
 
 from masdar.dedup.fingerprint import Fingerprint
-from masdar.domain import Attribution
 
 #: Entries and pending submissions share one match-key namespace. An entry is its own
 #: id ('uthaymin-000421', which never contains a colon); a submission is this prefix
@@ -83,24 +82,6 @@ class UploadTooLarge(ValueError):
     """The upload is bigger than the store accepts."""
 
 
-class InvalidMetadata(ValueError):
-    """A kept upload names a scholar or topic the archive does not know."""
-
-
-@dataclass(frozen=True, slots=True)
-class SubmissionMetadata:
-    """What the contributor said about a kept upload. Claims, not facts: attribution on
-    the entry is still the admin's call, however sure the contributor was."""
-
-    contributor: str | None
-    scholar_id: str | None
-    scholar_other: str | None
-    topic_id: str | None
-    claimed_attribution: Attribution
-    source_note: str | None
-    note: str | None
-
-
 class Submissions(Protocol):
     """Triaged uploads waiting for the contributor's decision, then for an admin."""
 
@@ -116,11 +97,10 @@ class Submissions(Protocol):
         """Store a triaged upload. False if identical bytes were recorded first."""
         ...
 
-    def keep(self, sha256: str, metadata: SubmissionMetadata) -> bool:
-        """Send a pending upload in. False if it is not awaiting a decision.
-
-        Raises `InvalidMetadata` for a scholar or topic id the archive does not know.
-        """
+    def keep(self, sha256: str, contributor: str) -> bool:
+        """Send a pending upload in, under its sender's name. False if it is not
+        awaiting a decision. Which scholar it is, and how sure anyone is, is settled when
+        an admin registers it -- see migration 0004."""
         ...
 
     def drop(self, sha256: str) -> Path | None:
@@ -134,10 +114,8 @@ class Submissions(Protocol):
 
 __all__ = [
     "SUBMISSION_PREFIX",
-    "InvalidMetadata",
     "KnownHashes",
     "StagedUpload",
-    "SubmissionMetadata",
     "Submissions",
     "UploadStore",
     "UploadTooLarge",

@@ -376,25 +376,16 @@ class UploadCheckOut(BaseModel):
 class UploadDecisionIn(BaseModel):
     """The contributor's decision about one triaged upload.
 
-    Dropping needs nothing else. Keeping needs the two things the form has always
-    required because nobody can reconstruct them later: whose words these are, and how
-    sure the contributor is of it. Free text is bounded -- the page is an unlisted
-    link, not a login.
+    Dropping needs nothing else. Keeping needs the sender's name, so the admin knows whom
+    to ask about the file. Which scholar it is is not asked here: a batch holds files of
+    many scholars, and the question is settled at registration (migration 0004). Fields an
+    older page still sends are ignored.
     """
 
     keep: bool
     contributor: str | None = Field(default=None, max_length=200)
-    scholar_id: str | None = Field(default=None, max_length=200)
-    scholar_other: str | None = Field(default=None, max_length=200)
-    topic_id: str | None = Field(default=None, max_length=200)
-    claimed_attribution: Attribution | None = None
-    source_note: str | None = Field(default=None, max_length=1000)
-    note: str | None = Field(default=None, max_length=2000)
 
-    @field_validator(
-        "contributor", "scholar_id", "scholar_other", "topic_id", "source_note", "note",
-        mode="before",
-    )
+    @field_validator("contributor", mode="before")
     @classmethod
     def _blank_is_absent(cls, value: object) -> object:
         if isinstance(value, str):
@@ -402,13 +393,9 @@ class UploadDecisionIn(BaseModel):
         return value
 
     @model_validator(mode="after")
-    def _kept_says_whose_and_how_sure(self) -> UploadDecisionIn:
-        if not self.keep:
-            return self
-        if self.scholar_id is None and self.scholar_other is None:
-            raise ValueError("a kept upload needs scholar_id or scholar_other")
-        if self.claimed_attribution is None:
-            raise ValueError("a kept upload needs claimed_attribution")
+    def _kept_names_its_sender(self) -> UploadDecisionIn:
+        if self.keep and self.contributor is None:
+            raise ValueError("a kept upload needs the sender's name")
         return self
 
 

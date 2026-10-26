@@ -20,12 +20,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
-from psycopg import errors
-
 from masdar.api.uploads import (
     SUBMISSION_PREFIX,
-    InvalidMetadata,
-    SubmissionMetadata,
     is_submission_key,
     submission_key,
 )
@@ -38,7 +34,6 @@ from masdar.dedup.fingerprint import (
     encode_items,
     index_keys,
 )
-from masdar.domain import Attribution
 
 #: How long an upload may wait for its contributor's decision. Someone who uploads and
 #: then closes the browser leaves it undecided; past this it stops blocking copies of
@@ -101,9 +96,7 @@ _RECORD_KEYS = (
 
 _KEEP = f"""
 UPDATE submission
-   SET state = 'kept', decided_at = now(),
-       contributor = %s, scholar_id = %s, scholar_other = %s, topic_id = %s,
-       claimed_attribution = %s, source_note = %s, note = %s
+   SET state = 'kept', decided_at = now(), contributor = %s
  WHERE sha256 = %s AND state = 'awaiting_decision'
    AND received_at > now() - interval '{DECISION_TTL_HOURS} hours'
 RETURNING sha256
@@ -113,7 +106,6 @@ _STAGED_PATH = "SELECT staged_path FROM submission WHERE sha256 = %s"
 
 _INBOX = """
 SELECT sha256, original_name, staged_path, duration_ms, received_at, contributor,
-       scholar_id, scholar_other, topic_id, claimed_attribution, source_note, note,
        candidate_keys
   FROM submission
  WHERE state = 'kept'
@@ -131,12 +123,6 @@ class InboxItem:
     duration_ms: int
     received_at: datetime
     contributor: str | None
-    scholar_id: str | None
-    scholar_other: str | None
-    topic_id: str | None
-    claimed_attribution: Attribution
-    source_note: str | None
-    note: str | None
     #: Matches the contributor heard and kept the file anyway. Non-empty means: listen
     #: to both before registering.
     kept_despite: list[str]
@@ -239,25 +225,10 @@ class PgSubmissions:
                 )
         return True
 
-    def keep(self, sha256: str, metadata: SubmissionMetadata) -> bool:
-        """Send a pending upload in. False if it was already decided, or never existed."""
-        try:
-            rows = self._executor.fetchall(
-                _KEEP,
-                (
-                    metadata.contributor,
-                    metadata.scholar_id,
-                    metadata.scholar_other,
-                    metadata.topic_id,
-                    metadata.claimed_attribution.value,
-                    metadata.source_note,
-                    metadata.note,
-                    sha256,
-                ),
-            )
-        except errors.ForeignKeyViolation as exc:
-            raise InvalidMetadata("unknown scholar or topic id") from exc
-        return bool(rows)
+    def keep(self, sha256: str, contributor: str) -> bool:
+        """Send a pending upload in, under its sender's name. False if it was already
+        decided, or never existed."""
+        return bool(self._executor.fetchall(_KEEP, (contributor, sha256)))
 
     def drop(self, sha256: str) -> Path | None:
         """Delete a pending upload. Returns its staged file for the caller to remove, or
@@ -284,13 +255,7 @@ class PgSubmissions:
                 duration_ms=int(str(row[3])),
                 received_at=row[4] if isinstance(row[4], datetime) else datetime.min,
                 contributor=text(row[5]),
-                scholar_id=text(row[6]),
-                scholar_other=text(row[7]),
-                topic_id=text(row[8]),
-                claimed_attribution=Attribution(str(row[9])),
-                source_note=text(row[10]),
-                note=text(row[11]),
-                kept_despite=[str(key) for key in row[12]] if isinstance(row[12], list) else [],
+                kept_despite=[str(key) for key in row[6]] if isinstance(row[6], list) else [],
             )
             for row in self._executor.fetchall(_INBOX)
         ]
@@ -307,7 +272,6 @@ __all__ = [
     "PgFingerprintIndex",
     "PgKnownHashes",
     "PgSubmissions",
-    "SubmissionMetadata",
     "is_submission_key",
     "submission_key",
 ]

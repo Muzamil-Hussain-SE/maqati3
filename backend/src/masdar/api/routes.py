@@ -30,9 +30,7 @@ from masdar.api.schemas import (
 )
 from masdar.api.uploads import (
     SUBMISSION_PREFIX,
-    InvalidMetadata,
     KnownHashes,
-    SubmissionMetadata,
     Submissions,
     UploadStore,
     UploadTooLarge,
@@ -156,8 +154,6 @@ KeyedMedia = Depends(require_upload_key_or_query)
 #: The upload was decided already, or never triaged. One answer for both, like
 #: ENTRY_NOT_FOUND: a stranger probing hashes learns nothing from the difference.
 NOT_AWAITING_DECISION = "not_awaiting_decision"
-
-UNKNOWN_SCHOLAR_OR_TOPIC = "unknown_scholar_or_topic"
 
 #: The file has no audio that could be decoded: a photo, a silent screen recording, a
 #: document renamed to .mp4. Nothing in it could ever be transcribed.
@@ -367,23 +363,11 @@ def decide_upload(
         store.discard(path)
         return UploadDecisionOut(sha256=sha256, status="dropped")
 
-    if decision.claimed_attribution is None:
-        # UploadDecisionIn already refuses this; checked again because it is the one
-        # field an admin cannot reconstruct, and an assert would vanish under -O.
-        raise HTTPException(status_code=422, detail="claimed_attribution is required")
-    metadata = SubmissionMetadata(
-        contributor=decision.contributor,
-        scholar_id=decision.scholar_id,
-        scholar_other=decision.scholar_other,
-        topic_id=decision.topic_id,
-        claimed_attribution=decision.claimed_attribution,
-        source_note=decision.source_note,
-        note=decision.note,
-    )
-    try:
-        kept = submissions.keep(sha256, metadata)
-    except InvalidMetadata as exc:
-        raise HTTPException(status_code=422, detail=UNKNOWN_SCHOLAR_OR_TOPIC) from exc
+    if decision.contributor is None:
+        # UploadDecisionIn already refuses this; checked again because the schema's own
+        # CHECK is the last line, and an assert would vanish under -O.
+        raise HTTPException(status_code=422, detail="contributor is required")
+    kept = submissions.keep(sha256, decision.contributor)
     if not kept:
         raise HTTPException(status_code=409, detail=NOT_AWAITING_DECISION)
     return UploadDecisionOut(sha256=sha256, status="kept")
