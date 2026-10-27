@@ -175,3 +175,59 @@ def test_the_sweep_removes_abandoned_uploads_and_their_files(
     assert list((tmp_path / "staging").iterdir()) == []
     # The same clip can now be uploaded afresh instead of being refused as a duplicate.
     assert upload(client, media["original"])["status"] == "new"
+
+
+# --------------------------------------------------------------- the admin login wiring
+
+ADMIN_SETTINGS = {
+    "google_client_id": "1234-abc.apps.googleusercontent.com",
+    "google_client_secret": "s3cret",
+    "public_url": "https://archiv.example.org",
+    "session_secret": "x" * 48,
+}
+
+
+def test_without_a_login_configured_the_dashboard_is_closed(tmp_path: Path) -> None:
+    app = build_app(
+        Settings(database_url="postgresql://unused", staging_dir=tmp_path, upload_key="k")
+    )
+
+    # No `with`: the lifespan would connect to the database, which this route never needs.
+    assert TestClient(app).get("/api/v1/admin/me").status_code == 503
+
+
+@pytest.mark.parametrize("missing", sorted(ADMIN_SETTINGS))
+def test_a_half_configured_login_refuses_to_start(tmp_path: Path, missing: str) -> None:
+    # Silently running without the dashboard when someone meant to enable it would look
+    # like a bug elsewhere; running with part of it would be worse.
+    partial = {k: v for k, v in ADMIN_SETTINGS.items() if k != missing}
+
+    with pytest.raises(ValueError, match=missing.upper()):
+        build_app(
+            Settings(
+                database_url="postgresql://unused", staging_dir=tmp_path, upload_key="k", **partial
+            )
+        )
+
+
+def test_a_configured_login_sends_the_browser_to_google(tmp_path: Path) -> None:
+    app = build_app(
+        Settings(
+            database_url="postgresql://unused",
+            staging_dir=tmp_path,
+            upload_key="k",
+            **ADMIN_SETTINGS,
+        )
+    )
+    client = TestClient(app, base_url="https://archiv.example.org")
+
+    me = client.get("/api/v1/admin/me")
+    login = client.get("/api/v1/admin/auth/login", follow_redirects=False)
+
+    assert me.status_code == 401
+    assert login.status_code == 303
+    location = login.headers["location"]
+    assert location.startswith("https://accounts.google.com/o/oauth2/v2/auth?")
+    assert "client_id=1234-abc.apps.googleusercontent.com" in location
+    assert "redirect_uri=https%3A%2F%2Farchiv.example.org%2Fapi%2Fv1%2Fadmin%2Fauth" in location
+    assert "%2Fcallback" in location
