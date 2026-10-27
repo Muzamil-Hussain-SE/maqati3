@@ -72,6 +72,8 @@ Basis ist MASDAR (Ein-Maschinen-Monolith, ein Postgres fuer alles), ergaenzt um 
 
 *Kosten:* 0 EUR. Google Drive API ist bis 400 Mio. Quota-Units/Tag kostenlos.
 
+**Revidiert 2026-10-27 (Pruefen):** Das Korrigieren der Transkripte und Uebersetzungen laeuft nicht mehr ueber Google Docs im Drive, sondern in einem eigenen Tabellen-Editor im Admin-Dashboard (Zeile anklicken, Audio springt dorthin, Sprache als geprueft markieren, pro Sprache "in Bearbeitung" sichtbar). Gruende: Sperren, Pruefregeln und Zuschreibung liegen dann in einem System, und die Drive/Docs-Anbindung (OAuth-Token, Zurueckspielen, Quoten) entfaellt. Kostet mehr Bauaufwand als die Doc-Loesung, die oben als bewusst nicht gebaut galt. Login: Google-Anmeldung mit Admin-Liste, kein Keycloak. Ablauf und Begruendung: CLAUDE.md, "The Admin Workflow". `intake/` (Link 2 "My tasks", Doc-Vorlage) beschreibt bis dahin noch den alten Weg.
+
 #### Status-Rueckkanal
 **Der Worker schreibt in vier NEUE Spalten des bestehenden Register-Sheets: pipeline_status, pipeline_fehler, rohtext_url, geprueft_url. Kein Telegram-Bot, keine separate Statusseite, keine zweite Oberflaeche**
 

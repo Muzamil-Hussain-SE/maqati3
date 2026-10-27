@@ -172,14 +172,52 @@ and the reasoning for reversing the original no-upload-form decision: `docs/ARCH
 7. Metadata generation (batch, cheap model): title, question, topic, `hukm` as an enum,
    `generality`, Qur'an and hadith references
 8. Draft translations DE + EN, line by line
-9. **→ appears as a task for a contributor.** Steps 2–8 are automatic: minutes, under 1 cent.
-10. Contributor corrects in a Google Doc — a table, one row per moment
-11. Admin approves
+9. **→ appears as a task for an admin.** Steps 2–8 are automatic *once an admin has chosen
+   the video* (see "The Admin Workflow" below): minutes, under 1 cent.
+10. Admin corrects in the dashboard's table editor — one row per moment, per language
+11. Admin approves each language
 12. Indexed, live
 
 Steps 1–9 are cheap. **Step 10 is the whole project's cost curve.**
 
 Details and the five dedup layers: `docs/PIPELINE.md`.
+
+## The Admin Workflow
+
+Decided 2026-10-27, replacing the Drive/Google-Doc review of the original design:
+
+1. **Upload stays open** to anyone holding the (confidential) link. Nothing is processed
+   automatically any more.
+2. **A dashboard behind login** lists every kept upload: sender, date, duration, a player,
+   and the flag "kept despite a match". Only registered **admins** get in.
+3. **An admin decides per video.** They watch it, and if it is worth the review time they
+   *register* it — choosing the scholar, which creates the entry (`<scholar-id>-<6 digits>`,
+   attribution starting at `not_sure`) — and trigger transcription and the draft
+   translations. They can also discard it. If the scholar cannot be told, the video stays
+   in the dashboard as "scholar unclear". The gate is about **review time, not cost**
+   (ASR is ~0.002 $ for an 80 s clip), which is what "deep before broad" means in practice.
+4. **Review happens in the dashboard**, in a table editor: one row per moment, audio synced
+   to the row, edit the text, mark a language checked. No Google Docs, no Drive API.
+5. **Per language, with a claim.** The unit of work is one language of one entry. Whoever
+   takes it makes it visible to everyone as "in progress: <name>", so nobody does the same
+   work twice. An admin without German or English reviews Arabic only; the other languages
+   stay unchecked and unpublished — the existing rule that Arabic alone publishes an entry.
+6. **Login is Google sign-in plus an admin allowlist** of e-mail addresses: no passwords of
+   ours, no extra service (Keycloak was rejected: one more service to operate, and it needs
+   far more memory than the whole stack, which measured ~0.35 GB). One role, "admin"; every
+   action is recorded with who did it. Separating *reviewer* from *admin* (the corrector
+   not approving their own work) stays possible later.
+
+Two constraints that follow from the integrity rules above:
+
+- **Admin routes fail closed.** Without a configured login they answer 401 and the
+  dashboard's media route is not served. It is never deployed open.
+- **Google sign-in needs the final domain**, because Google pins the redirect address. The
+  provisional DuckDNS name is not enough, and DuckDNS is blocked by some home routers
+  anyway: buy the domain before the brothers get any link.
+
+Open: the claim's timeout and takeover rule; whether someone who corrected a language may
+approve it (single role for now, so yes, logged); what "scholar unclear" blocks.
 
 ## Why There Is No Forced Alignment In Phase 1
 
