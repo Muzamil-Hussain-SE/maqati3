@@ -72,5 +72,56 @@
     "more": "Upload more",
     "leaveWarning": "Some files have not been sent yet.",
     "yourNameHint": "So we know who sent these files."
+  },
+  "admin": {
+    "title": "Admin",
+    "intro": "Uploads waiting for a decision. Watch one, and if it is worth the review time, choose the scholar and register it.",
+    "signIn": "Sign in with Google",
+    "signedOutHint": "Only admins who have been added can get in.",
+    "login": {
+      "denied": "That Google address has not been added as an admin. Ask for it to be added.",
+      "failed": "The sign-in did not work. Please try again."
+    },
+    "notConfigured": "Sign-in is not set up on this server yet.",
+    "signedInAs": "Signed in as {email}",
+    "signOut": "Sign out",
+    "loading": "Loading…",
+    "working": "One moment…",
+    "waiting": {
+      "title": "Waiting for a decision ({count})",
+      "empty": "Nothing is waiting. New uploads appear here."
+    },
+    "registered": {
+      "title": "Registered ({count})",
+      "empty": "Nothing has been registered yet."
+    },
+    "from": "From {name}",
+    "keptDespite": "Kept although it matched something. Please listen to both:",
+    "scholar": {
+      "label": "Scholar",
+      "choose": "Choose…",
+      "add": "Add a scholar…",
+      "idLabel": "Id (e.g. ibn-baz)",
+      "nameEnLabel": "Name (Latin letters)",
+      "nameArLabel": "Name (Arabic)",
+      "save": "Add",
+      "cancel": "Cancel",
+      "unclear": "If you cannot tell who it is, just leave the video here."
+    },
+    "register": "Register",
+    "registerHint": "Creates the entry. Its attribution stays “not sure” until someone sets it.",
+    "discard": "Discard",
+    "discardConfirm": "Delete this video for good?",
+    "entry": "Entry {id}",
+    "registeredBy": "registered by {email}",
+    "error": {
+      "notWaiting": "Someone has already dealt with this one. The list was reloaded.",
+      "unknownScholar": "That scholar is not in the archive. Please choose again.",
+      "scholarExists": "A scholar with that id already exists.",
+      "signedOut": "You have been signed out. Please sign in again.",
+      "network": "The connection was interrupted.",
+      "generic": "Something went wrong. Please try again."
+    },
+    "play": "Play"
   }
 }

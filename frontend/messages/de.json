@@ -72,5 +72,56 @@
     "more": "Weitere hochladen",
     "leaveWarning": "Einige Dateien wurden noch nicht gesendet.",
     "yourNameHint": "Damit wir wissen, von wem die Dateien kommen."
+  },
+  "admin": {
+    "title": "Admin",
+    "intro": "Uploads, die auf eine Entscheidung warten. Schau dir eins an, und wenn sich die Prüfzeit lohnt, wähle den Gelehrten und registriere es.",
+    "signIn": "Mit Google anmelden",
+    "signedOutHint": "Nur Admins, die freigeschaltet wurden, kommen hinein.",
+    "login": {
+      "denied": "Diese Google-Adresse ist nicht als Admin eingetragen. Bitte lass sie eintragen.",
+      "failed": "Die Anmeldung hat nicht geklappt. Bitte versuch es noch einmal."
+    },
+    "notConfigured": "Die Anmeldung ist auf diesem Server noch nicht eingerichtet.",
+    "signedInAs": "Angemeldet als {email}",
+    "signOut": "Abmelden",
+    "loading": "Wird geladen…",
+    "working": "Einen Moment…",
+    "waiting": {
+      "title": "Warten auf eine Entscheidung ({count})",
+      "empty": "Nichts wartet. Neue Uploads erscheinen hier."
+    },
+    "registered": {
+      "title": "Registriert ({count})",
+      "empty": "Noch nichts registriert."
+    },
+    "from": "Von {name}",
+    "keptDespite": "Behalten, obwohl es zu etwas passt. Bitte beide anhören:",
+    "scholar": {
+      "label": "Gelehrter",
+      "choose": "Auswählen…",
+      "add": "Gelehrten hinzufügen…",
+      "idLabel": "Kennung (z. B. ibn-baz)",
+      "nameEnLabel": "Name (lateinische Schrift)",
+      "nameArLabel": "Name (arabisch)",
+      "save": "Hinzufügen",
+      "cancel": "Abbrechen",
+      "unclear": "Wenn du nicht erkennst, wer es ist, lass das Video einfach hier stehen."
+    },
+    "register": "Registrieren",
+    "registerHint": "Legt den Eintrag an. Die Zuschreibung bleibt „nicht sicher“, bis sie jemand festlegt.",
+    "discard": "Verwerfen",
+    "discardConfirm": "Dieses Video endgültig löschen?",
+    "entry": "Eintrag {id}",
+    "registeredBy": "registriert von {email}",
+    "error": {
+      "notWaiting": "Das hat inzwischen schon jemand bearbeitet. Die Liste wurde neu geladen.",
+      "unknownScholar": "Diesen Gelehrten gibt es im Archiv nicht. Bitte neu auswählen.",
+      "scholarExists": "Einen Gelehrten mit dieser Kennung gibt es schon.",
+      "signedOut": "Du bist abgemeldet. Bitte melde dich neu an.",
+      "network": "Die Verbindung wurde unterbrochen.",
+      "generic": "Etwas ist schiefgegangen. Bitte versuch es noch einmal."
+    },
+    "play": "Abspielen"
   }
 }
