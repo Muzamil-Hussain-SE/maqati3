@@ -28,6 +28,12 @@ services:
     environment:
       DATABASE_URL: postgresql://maqati3:${POSTGRES_PASSWORD}@db:5432/maqati3
       UPLOAD_KEY: ${UPLOAD_KEY:?set UPLOAD_KEY in .env}
+      # The admin dashboard's login: all four or none (see docs/BETRIEB.md). Left empty,
+      # the dashboard stays closed; set only some of them and the server refuses to start.
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      PUBLIC_URL: ${PUBLIC_URL:-}
+      SESSION_SECRET: ${SESSION_SECRET:-}
     volumes:
       # The only copy of every upload until an admin registers it. Back this up.
       - staging:/var/lib/maqati3

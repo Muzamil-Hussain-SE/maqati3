@@ -1,5 +1,10 @@
 # Admin guide
 
+> **Partly superseded (2026-10-27).** Registering, assigning work and approving now happen
+> in the admin dashboard, not in the register sheet; see `CLAUDE.md`, "The Admin Workflow",
+> and `docs/BETRIEB.md`. The checks in section 3 (what to look for when reviewing a
+> transcript or translation) still apply unchanged.
+
 You are the last step before anything becomes public. Everything you approve can later be
 quoted by a search tool and presented to someone as the words of a scholar. So approval is
 not a formality.

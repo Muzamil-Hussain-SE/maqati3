@@ -1,5 +1,9 @@
 # Google access — step by step
 
+> **Superseded for review (2026-10-27).** Transcripts are no longer reviewed in Google Docs,
+> so the Drive/Docs/Sheets integration below is not planned. The dashboard login needs a
+> different, much smaller Google setup: see `docs/BETRIEB.md`, "Der Admin-Bereich".
+
 The backend reads the Drive folder and the register sheet, and writes transcript drafts
 into the entry documents. This is the fiddliest piece of setup, so here it is as a
 checklist. ~20 minutes, once.

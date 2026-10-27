@@ -4,7 +4,7 @@ A central multilingual platform (Arabic / English / German) for the video and au
 of the scholars, with transcripts, translations, and a search tool that answers questions by
 pointing at the scholars' own words — linked to the exact second in the recording.
 
-**Status: bulk upload built, not yet deployed.** See `CLAUDE.md` for the current state,
+**Status: bulk upload deployed; admin dashboard built, not yet on the server.** See `CLAUDE.md` for the current state,
 architecture, and the constraints the whole system is built around.
 
 ---
@@ -34,6 +34,10 @@ docs/raw/            Raw research output, 16 agents
 ---
 
 ## The design in one paragraph
+
+> *Updated 2026-10-27: contributors now upload files on a dedicated page, and admins
+> review in a dashboard of our own instead of Google Docs. See `CLAUDE.md`, "The Admin
+> Workflow". The paragraph below describes the original design.*
 
 Contributors never see the Drive. They get **two links**: a Google Form to submit material,
 and a filtered view of the register showing only their own tasks. Transcription and

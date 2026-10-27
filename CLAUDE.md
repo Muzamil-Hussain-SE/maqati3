@@ -20,7 +20,12 @@ DuckDNS name (`docs/BETRIEB.md`). Contributors upload up to 20 files at once
 (`/{locale}/upload#k=<UPLOAD_KEY>`), every file is checked live against the archive and
 against other pending uploads (SHA-256, then Chromaprint by bit error rate), the
 contributor decides on candidates, and kept uploads wait in `python -m maqati3 inbox` for
-an admin. Not built yet: the ASR draft pipeline, and registering an upload as an entry.
+an admin. **The admin dashboard is built** (`/{locale}/admin`): Google sign-in with an admin
+allowlist, a list of every kept upload with a player, *register* (choose the scholar → a draft
+entry, `not_sure`) and *discard*, every action logged. Tested locally in Chrome against a real
+database with a stand-in for Google; **not on the server yet**, and closed until a domain and a
+Google OAuth client exist (`docs/BETRIEB.md`, "Der Admin-Bereich"). Not built yet: transcription
+and draft translation on demand, and the review editor with the per-language claim.
 
 ## The Constraint Everything Else Bends Around
 

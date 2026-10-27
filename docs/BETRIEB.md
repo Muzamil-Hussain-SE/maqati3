@@ -1,6 +1,6 @@
-# Betrieb — Upload-Strecke
+# Betrieb — Upload und Admin-Bereich
 
-*Stand 2026-10-25. Genau die Schritte, die bei der Verifikation tatsächlich gelaufen sind.*
+*Stand 2026-10-27. Genau die Schritte, die bei der Verifikation tatsächlich gelaufen sind.*
 
 ## Auf einen Server bringen (Docker Compose)
 
@@ -8,7 +8,9 @@ Getestet mit genau diesen Dateien (`deploy/`): am 2026-10-25 lokal (Arm, Chrome-
 208-MB-Video), am 2026-10-26 **auf einem echten Server** (Hetzner CPX12, x86, Ubuntu 26.04,
 Docker 29.9): Build, Start, echtes Let's-Encrypt-Zertifikat über Caddy, Test-Uploads
 (neu / identisch / neu kodierte Kopie / ohne Ton / Vorschau). Datenbank und Backend-Port
-sind von außen nicht erreichbar.
+sind von außen nicht erreichbar. **Der Admin-Bereich** (Dashboard) ist am 2026-10-27 lokal getestet
+(Chrome, echte Datenbank, ein Platzhalter statt Google) und noch **nicht auf dem Server**
+eingespielt; er bleibt dort ohnehin zu, bis Domain und Google-Zugang eingerichtet sind.
 
 1. **Server anlegen** (Hetzner Cloud Console): Ubuntu 24.04, Standort Nürnberg, Typ
    **CPX12** (1 vCPU, 2 GB RAM, 40 GB SSD; 11,49 €/Monat + 0,50 € IPv4, jeweils netto,
@@ -52,6 +54,13 @@ sind von außen nicht erreichbar.
 | `STAGING_DIR` | nein | Wo Uploads liegen, bis ein Admin sie registriert. Im Container `/var/lib/maqati3/staging` auf dem Volume `staging`. |
 | `MAX_UPLOAD_BYTES` | nein | Standard 2 GiB je Datei (Caddy lässt bis 2 GB durch) |
 | `FPCALC_PATH` | nein | Standard `fpcalc` (im Image enthalten) |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | für den Admin-Bereich | Der OAuth-Client von Google, siehe unten |
+| `PUBLIC_URL` | für den Admin-Bereich | Die Adresse der Seite, `https://<domain>`, ohne Pfad |
+| `SESSION_SECRET` | für den Admin-Bereich | Signiert das Login-Cookie, mind. 32 Zeichen. `python3 -c "import secrets; print(secrets.token_urlsafe(48))"`. Ändern = alle Admins abgemeldet. |
+
+Die vier Admin-Werte gehören zusammen: **alle oder keine**. Keine → der Admin-Bereich ist
+geschlossen (jede Adresse antwortet 503). Nur ein Teil → der Server startet nicht, mit
+Meldung, welcher Wert fehlt.
 
 `.env.example` sollte diese Schlüssel aufnehmen — offen, weil die Datei für Claude per
 Einstellung gesperrt ist.
@@ -65,6 +74,10 @@ UPLOAD_KEY=dev uv run python -m maqati3 serve --port 8000
 cd frontend && npm run dev   # leitet /api an :8000 weiter (API_ORIGIN, beim Build eingebacken)
 ```
 
+Die Weiterleitung von Next kappt Uploads bei **10 MB** — nur in dieser Entwicklungs-Variante.
+Auf dem Server geht `/api` über Caddy direkt zum Backend (208 MB getestet). Große Dateien
+lokal deshalb direkt an Port 8000 schicken oder den Docker-Stack benutzen.
+
 Braucht lokal `fpcalc` (`brew install chromaprint`) und ein Postgres 17 mit pgvector.
 
 ## Der Link für die Brüder
@@ -76,13 +89,52 @@ https://<domain>/ar/upload#k=<UPLOAD_KEY>
 (`/en/` bzw. `/de/` für die anderen Sprachen.) Der Schlüssel steht hinter `#` und
 erreicht deshalb nie Server-Logs oder Referrer. Nur in der Gruppe teilen.
 
-## Für den Admin
+## Der Admin-Bereich
+
+Adresse: `https://<domain>/de/admin` (auch `/en/`, `/ar/`). Ablauf und Gründe:
+`CLAUDE.md`, „The Admin Workflow“. Kurz: Admins melden sich mit Google an, sehen alle
+behaltenen Uploads mit Player, wählen den Gelehrten und **registrieren** das Video (das legt
+den Eintrag an, Zuschreibung bleibt „nicht sicher“) oder **verwerfen** es. Alles, was ein
+Admin tut, steht mit seiner Adresse in der Tabelle `admin_log`.
+
+### Einrichten (einmalig, ca. 15 Minuten, braucht die endgültige Domain)
+
+Google trägt die Adresse der Seite fest ein; mit der vorläufigen DuckDNS-Adresse müsste
+alles später neu gemacht werden.
+
+1. <https://console.cloud.google.com> → ein Projekt (das aus `docs/SETUP-GOOGLE.md` oder ein neues).
+2. **APIs & Dienste → OAuth-Zustimmungsbildschirm**: Nutzertyp *Extern*, App-Name und
+   Support-E-Mail eintragen. Bereiche: nur `openid`, `email`, `profile` (nichts Sensibles).
+   Solange der Status *Testing* ist, dürfen nur dort eingetragene **Testnutzer** hinein:
+   die Admin-Adressen auch dort eintragen.
+3. **Anmeldedaten → Anmeldedaten erstellen → OAuth-Client-ID**, Typ **Webanwendung**
+   (nicht „Desktop“ wie bei der Drive-Anleitung). *Autorisierte Weiterleitungs-URI*:
+   `https://<domain>/api/v1/admin/auth/callback` — genau so, Zeichen für Zeichen.
+4. Client-ID und Client-Secret kopieren und **nur** in die `.env` auf dem Server:
+   ```
+   GOOGLE_CLIENT_ID=…
+   GOOGLE_CLIENT_SECRET=…
+   PUBLIC_URL=https://<domain>
+   SESSION_SECRET=<die erzeugte Zeichenfolge>
+   ```
+   Dann `docker compose up -d`. Das Secret nie in den Chat, ein Repository oder ein Foto.
+5. Erste Admins eintragen (die **Google-Adresse**, mit der sich die Person anmeldet):
+   ```bash
+   cd /opt/maqati3/deploy
+   docker compose exec api python -m maqati3 admin add name@gmail.com --name Vorname
+   docker compose exec api python -m maqati3 admin list
+   docker compose exec api python -m maqati3 admin remove name@gmail.com   # wirkt sofort
+   ```
+
+Wer nicht auf der Liste steht, kommt nicht hinein, auch mit gültigem Google-Konto; wer
+entfernt wird, ist ab der nächsten Anfrage draußen.
+
+### Ohne Dashboard: die Inbox auf dem Server
 
 ```bash
 ssh root@<IP>                                      # ggf. -i <dein Schlüssel>
 cd /opt/maqati3/deploy && docker compose exec api python -m maqati3 inbox
 ```
 
-listet abgeschickte Uploads mit Datei, Gelehrtem, Selbsteinschätzung, Quelle — und
-markiert die, die **trotz Treffer** behalten wurden: beide anhören, bevor registriert wird.
-Das Registrieren als Eintrag (ID vergeben, Zuschreibung festlegen) ist noch nicht gebaut.
+listet abgeschickte Uploads mit Datei und Absender und markiert die, die **trotz Treffer**
+behalten wurden. Registrieren und Verwerfen geht nur im Dashboard.

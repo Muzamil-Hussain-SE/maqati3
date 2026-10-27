@@ -2,6 +2,11 @@
 
 *Internes Entwicklerdokument, Deutsch wie ARCHITECTURE.md. `intake/` bleibt Englisch.*
 
+> **Stand 2026-10-27:** Schritt 10 (Korrektur im Google-Doc) und die automatische Verarbeitung
+> direkt nach dem Upload sind überholt. Admins wählen im Dashboard pro Video, ob es sich
+> lohnt, und korrigieren in einem eigenen Tabellen-Editor. Siehe `CLAUDE.md`, "The Admin
+> Workflow". Die fünf Dedup-Schichten unten gelten unverändert.
+
 Ziel: Der Bruder lädt etwas hoch, alles Maschinelle passiert von selbst, er korrigiert nur
 noch, der Admin gibt frei, es ist online. Und: nichts wird doppelt bearbeitet.
 
