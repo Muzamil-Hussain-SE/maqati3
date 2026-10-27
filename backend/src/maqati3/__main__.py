@@ -1,10 +1,11 @@
-"""`python -m maqati3 migrate | seed | serve | sweep | inbox`.
+"""`python -m maqati3 migrate | seed | serve | sweep | inbox | admin`.
 
 The first three run in that order on a fresh machine and again after every deploy; each
 is safe to repeat. Migrations are forward-only and skip what is applied; seeding upserts
 reference data and never deletes; serving is the API, which also sweeps abandoned
 uploads every half hour. `sweep` does that once, by hand. `inbox` lists what
-contributors sent in and an admin has not registered yet.
+contributors sent in and an admin has not registered yet. `admin add|remove|list` manages
+who may sign in to the dashboard.
 """
 
 from __future__ import annotations
@@ -15,6 +16,8 @@ import sys
 
 import psycopg
 
+from maqati3.cli_admin import run_admin_command
+from maqati3.db.admin import PgAdmins
 from maqati3.db.migrate import migrate
 from maqati3.db.seed import load_scholars, load_topics, seed_reference
 from maqati3.db.sql import PsycopgExecutor
@@ -43,6 +46,10 @@ def main(argv: list[str] | None = None) -> int:
     commands.add_parser("seed", help="load reference/ scholars and topics")
     commands.add_parser("sweep", help="remove uploads nobody decided on within a day")
     commands.add_parser("inbox", help="list kept uploads waiting to be registered")
+    admin = commands.add_parser("admin", help="who may sign in to the dashboard")
+    admin.add_argument("action", choices=["add", "remove", "list"])
+    admin.add_argument("email", nargs="?", help="the Google address (add, remove)")
+    admin.add_argument("--name", help="a display name (add)")
     serve = commands.add_parser("serve", help="run the API")
     serve.add_argument("--host", default="127.0.0.1")
     serve.add_argument("--port", type=int, default=8000)
@@ -66,6 +73,15 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "migrate":
             applied = migrate(executor, settings.migrations_dir)
             print(f"applied: {', '.join(applied) or 'nothing, already up to date'}")
+        elif args.command == "admin":
+            try:
+                for line in run_admin_command(
+                    PgAdmins(executor), args.action, args.email, name=args.name
+                ):
+                    print(line)
+            except ValueError as exc:
+                print(exc, file=sys.stderr)
+                return 2
         elif args.command == "inbox":
             print_inbox(PgSubmissions(executor))
         elif args.command == "sweep":

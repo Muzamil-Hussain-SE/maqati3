@@ -17,7 +17,10 @@ from fastapi import FastAPI
 from psycopg_pool import ConnectionPool
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from maqati3.api.admin import AdminConfig
 from maqati3.api.app import create_app
+from maqati3.auth.google import GoogleIdentityProvider
+from maqati3.db.admin import PgAdmins, PgDesk
 from maqati3.db.library import PgLibraryRepository
 from maqati3.db.sql import PooledExecutor
 from maqati3.db.submissions import PgFingerprintIndex, PgKnownHashes, PgSubmissions
@@ -68,6 +71,47 @@ class Settings(BaseSettings):
     migrations_dir: Path = _REPO / "db" / "migrations"
     reference_dir: Path = _REPO / "reference"
     pool_max_size: int = 10
+    #: The admin dashboard's login. All four or none: see `admin_config`.
+    #: Google: an OAuth client of type "Web application", whose authorised redirect URI is
+    #: `<PUBLIC_URL>/api/v1/admin/auth/callback`.
+    google_client_id: str = ""
+    google_client_secret: str = ""
+    #: The site's own address, https://archiv.example.org (no path).
+    public_url: str = ""
+    #: Signs the session cookie. Long and random -- `python -c "import secrets;
+    #: print(secrets.token_urlsafe(48))"`. Changing it signs every admin out.
+    session_secret: str = ""
+
+
+def admin_config(settings: Settings, executor: PooledExecutor) -> AdminConfig | None:
+    """The dashboard's login, or None to leave it closed.
+
+    All four settings or none. A login half set up is refused outright: running without
+    the dashboard when someone meant to enable it looks like a bug somewhere else, and
+    running with part of it would be worse.
+    """
+    values = {
+        "GOOGLE_CLIENT_ID": settings.google_client_id,
+        "GOOGLE_CLIENT_SECRET": settings.google_client_secret,
+        "PUBLIC_URL": settings.public_url,
+        "SESSION_SECRET": settings.session_secret,
+    }
+    present = {name for name, value in values.items() if value.strip()}
+    if not present:
+        log.info("admin login is not configured; the dashboard stays closed")
+        return None
+    missing = sorted(set(values) - present)
+    if missing:
+        raise ValueError(f"the admin login is half configured; missing {', '.join(missing)}")
+    return AdminConfig(
+        provider=GoogleIdentityProvider(
+            client_id=settings.google_client_id, client_secret=settings.google_client_secret
+        ),
+        admins=PgAdmins(executor),
+        desk=PgDesk(executor),
+        public_url=settings.public_url,
+        session_secret=settings.session_secret,
+    )
 
 
 def build_app(settings: Settings, *, connect_kwargs: Mapping[str, Any] | None = None) -> FastAPI:
@@ -116,6 +160,7 @@ def build_app(settings: Settings, *, connect_kwargs: Mapping[str, Any] | None = 
         submissions=submissions,
         lifespan=lifespan,
         upload_key=settings.upload_key,
+        admin=admin_config(settings, executor),
     )
     app.state.store = store
     app.state.submissions = submissions
