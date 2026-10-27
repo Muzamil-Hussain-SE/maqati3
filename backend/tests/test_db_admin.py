@@ -17,7 +17,6 @@ import pytest
 
 from maqati3.api.desk import NotWaiting, ScholarExists, UnknownScholar
 from maqati3.db.admin import PgAdmins, PgDesk
-
 from maqati3.db.library import PgLibraryRepository
 from maqati3.db.submissions import PgFingerprintIndex, PgKnownHashes, PgSubmissions
 from maqati3.dedup.fingerprint import Fingerprint, encode_items, index_keys
@@ -233,7 +232,8 @@ def test_integration_a_registered_entry_starts_every_language_not_started() -> N
         entry_id = PgDesk(executor).register("abc", "ibn-baz", "yusuf@example.org")
 
         states = connection.execute(
-            "SELECT lang, state, assignee FROM entry_language WHERE entry_id = %s ORDER BY lang",
+            "SELECT lang, state, assignee FROM entry_language "
+            "WHERE entry_id = %s ORDER BY lang::text",
             (entry_id,),
         ).fetchall()
 
