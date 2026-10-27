@@ -420,17 +420,17 @@ def test_an_app_without_a_login_configured_serves_no_admin_route(method: str, pa
     assert response.json()["detail"] == "admin_not_configured"
 
 
-def test_a_session_secret_that_is_too_short_refuses_to_build_the_app() -> None:
-    config = AdminConfig(
-        provider=FakeProvider(),
-        admins=FakeAdmins(),
-        desk=FakeDesk(),
-        public_url=PUBLIC_URL,
-        session_secret="short",
-    )
-
+def test_a_session_secret_that_is_too_short_cannot_even_be_configured() -> None:
+    # Checked when the configuration is made, so no code path can build a login whose
+    # cookies are signed with a guessable key.
     with pytest.raises(ValueError, match="session secret"):
-        create_app(FakeRepository(), admin=config)  # type: ignore[arg-type]
+        AdminConfig(
+            provider=FakeProvider(),
+            admins=FakeAdmins(),
+            desk=FakeDesk(),
+            public_url=PUBLIC_URL,
+            session_secret="short",
+        )
 
 
 @pytest.mark.parametrize(
@@ -612,7 +612,12 @@ def test_an_admin_can_add_a_scholar() -> None:
     )
 
     assert response.status_code == 200
-    assert response.json() == {"id": "rabi-al-madkhali"}
+    # The page puts the new scholar straight into its dropdown.
+    assert response.json() == {
+        "id": "rabi-al-madkhali",
+        "name_ar": "ربيع المدخلي",
+        "name_en": "Rabi al-Madkhali",
+    }
     assert setup.desk.calls == [
         ("add_scholar", "rabi-al-madkhali", "ربيع المدخلي", "Rabi al-Madkhali", "yusuf@example.org")
     ]
