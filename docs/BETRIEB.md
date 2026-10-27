@@ -30,7 +30,7 @@ sind von außen nicht erreichbar.
 3. **Auf dem Server:**
    ```bash
    curl -fsSL https://get.docker.com | sh
-   git clone https://github.com/PSchmitz-Valckenberg/masdar.git /opt/maqati3 && cd /opt/maqati3/deploy
+   git clone https://github.com/PSchmitz-Valckenberg/maqati3.git /opt/maqati3 && cd /opt/maqati3/deploy
    cat > .env <<EOF
    DOMAIN=archiv.example.org
    POSTGRES_PASSWORD=$(openssl rand -hex 24)
