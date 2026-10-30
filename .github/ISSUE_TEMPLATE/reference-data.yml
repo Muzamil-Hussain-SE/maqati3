@@ -1,0 +1,40 @@
+name: Reference data correction
+description: A factual error in reference/ (a name, a spelling, a date).
+labels: ["area: data"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This is for factual errors: a misspelt name, a wrong transliteration, a wrong date.
+        **Which scholars are included, and how topics are classified, is decided by the maintainers.**
+        It is not discussed in issues, and debates about rulings or persons will be closed
+        (see the [code of conduct](https://github.com/PSchmitz-Valckenberg/maqati3/blob/main/CODE_OF_CONDUCT.md)).
+  - type: dropdown
+    id: file
+    attributes:
+      label: File
+      options:
+        - reference/scholars.csv
+        - reference/topics.yml
+    validations:
+      required: true
+  - type: input
+    id: row
+    attributes:
+      label: Which row or id
+      placeholder: ibn-uthaymin
+    validations:
+      required: true
+  - type: textarea
+    id: correction
+    attributes:
+      label: What is wrong, and what is right
+    validations:
+      required: true
+  - type: input
+    id: source
+    attributes:
+      label: Source
+      description: Where the correct value can be checked (a book, an official website).
+    validations:
+      required: true

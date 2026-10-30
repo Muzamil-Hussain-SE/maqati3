@@ -1,0 +1,34 @@
+name: Proposal
+description: An idea for something new, or a change to how something works.
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please check the [open issues](https://github.com/PSchmitz-Valckenberg/maqati3/issues) and the
+        [roadmap](https://github.com/PSchmitz-Valckenberg/maqati3/milestones) first. It may already be planned.
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What is hard, slow or missing today, and for whom (contributors, admins, readers)?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: The proposal
+      description: What should change? Sketches and screenshots are welcome.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you considered
+  - type: checkboxes
+    id: integrity
+    attributes:
+      label: Integrity
+      description: See "Integrity is structural" in CLAUDE.md.
+      options:
+        - label: This touches what may be published or quoted (attribution, span_role, citable, excluded topics, deduplication).

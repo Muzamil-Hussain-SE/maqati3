@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security problem
+    url: https://github.com/PSchmitz-Valckenberg/maqati3/security/advisories/new
+    about: Privately, never as a public issue. Only the maintainer sees it.
+  - name: How to contribute
+    url: https://github.com/PSchmitz-Valckenberg/maqati3/blob/main/CONTRIBUTING.md
+    about: Setup, tests, the rules for pull requests, and what is not decided in a pull request.

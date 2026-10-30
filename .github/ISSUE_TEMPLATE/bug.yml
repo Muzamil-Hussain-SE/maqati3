@@ -1,0 +1,47 @@
+name: Bug report
+description: Something does not work as it should.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for reporting this. **A security problem does not belong here.** Please use the
+        [private report](https://github.com/PSchmitz-Valckenberg/maqati3/security/advisories/new) instead.
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where
+      options:
+        - Upload page
+        - Admin dashboard
+        - Backend or API
+        - Running it locally or deploying
+        - Somewhere else
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What did you do, what did you see, and what did you expect to see instead?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: How to reproduce
+      placeholder: |
+        1. Open /ar/upload on a phone
+        2. Choose three files
+        3. ...
+  - type: input
+    id: setup
+    attributes:
+      label: Browser, device, language
+      placeholder: Chrome on Android, Arabic
+  - type: textarea
+    id: logs
+    attributes:
+      label: Error messages or logs
+      description: Remove the upload key and any personal data first.
+      render: text
