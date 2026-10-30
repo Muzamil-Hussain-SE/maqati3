@@ -1,3 +1,13 @@
+# Local development: the database only. Start it with `docker compose up -d db`.
+#
+# It starts empty on purpose. The schema comes from `python -m maqati3 migrate`, exactly
+# as on the server (backend/Dockerfile). Loading db/migrations through the image's
+# initdb hook instead would bypass the migration ledger, and the first `migrate` would
+# then fail with "type ... already exists".
+#
+# A Postgres of your own already on 5432? `DB_PORT=55432 docker compose up -d db`.
+name: maqati3-dev
+
 services:
   db:
     # Pinned: `latest` moved to Postgres 18, which cannot read a 17 data directory, and
@@ -8,10 +18,9 @@ services:
       POSTGRES_USER: maqati3
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-devonly}
     ports:
-      - "127.0.0.1:5432:5432"
+      - "127.0.0.1:${DB_PORT:-5432}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ./db/migrations:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U maqati3 -d maqati3"]
       interval: 5s

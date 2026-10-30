@@ -62,23 +62,28 @@ Die vier Admin-Werte gehören zusammen: **alle oder keine**. Keine → der Admin
 geschlossen (jede Adresse antwortet 503). Nur ein Teil → der Server startet nicht, mit
 Meldung, welcher Wert fehlt.
 
-`.env.example` sollte diese Schlüssel aufnehmen — offen, weil die Datei für Claude per
-Einstellung gesperrt ist.
+`.env.example` führt diese Schlüssel noch nicht; das ist ein offenes Issue.
 
 ## Ohne Docker (Entwicklung)
 
 ```bash
+docker compose up -d --wait db   # nur die Datenbank, leer; Port belegt? DB_PORT=55432 ...
 cd backend
+export DATABASE_URL=postgresql://maqati3:devonly@127.0.0.1:5432/maqati3
 uv run python -m maqati3 migrate && uv run python -m maqati3 seed
-UPLOAD_KEY=dev uv run python -m maqati3 serve --port 8000
+UPLOAD_KEY=dev STAGING_DIR=.staging uv run python -m maqati3 serve --port 8000
 cd frontend && npm run dev   # leitet /api an :8000 weiter (API_ORIGIN, beim Build eingebacken)
 ```
+
+Die Datenbank startet bewusst leer: das Schema legt `migrate` an, wie auf dem Server.
+`STAGING_DIR` muss lokal gesetzt sein, sonst scheitert der erste Upload am Standardpfad
+`/var/lib/maqati3/staging`.
 
 Die Weiterleitung von Next kappt Uploads bei **10 MB** — nur in dieser Entwicklungs-Variante.
 Auf dem Server geht `/api` über Caddy direkt zum Backend (208 MB getestet). Große Dateien
 lokal deshalb direkt an Port 8000 schicken oder den Docker-Stack benutzen.
 
-Braucht lokal `fpcalc` (`brew install chromaprint`) und ein Postgres 17 mit pgvector.
+Braucht lokal `fpcalc` und `ffmpeg` (`brew install chromaprint ffmpeg`).
 
 ## Der Link für die Brüder
 

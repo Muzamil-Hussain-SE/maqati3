@@ -32,3 +32,6 @@ media/
 .art-temp/
 logs/
 .venv/
+
+# Uploads staged by a local backend (STAGING_DIR=.staging)
+.staging/
