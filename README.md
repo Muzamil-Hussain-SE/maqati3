@@ -30,6 +30,11 @@ recording gets an Arabic transcript and English and German translations, and eve
 is anchored to the exact second it was said. On top of that comes a search tool that
 answers a question by pointing at the scholars' own words.
 
+**Whose words.** The archive is of the scholars of *Ahl as-Sunnah wal-Jamāʿah*, upon the
+Salafi methodology (*manhaj*). That is the scope of the project, and it is stated here so
+that nobody has to guess it. Which scholars are included is decided by the maintainers
+(`reference/scholars.csv`).
+
 The whole product fits in one sentence:
 
 > ### *Show me where he said it.*

@@ -7,7 +7,9 @@ audio with an Arabic transcript and English and German translations, every line 
 to the exact second in the recording, organised by topic and scholar. On top of it sits a
 search tool that answers a question by pointing at the scholars' own words.
 
-The product is one sentence: **show me where he said it.**
+The archive is of the scholars of Ahl as-Sunnah wal-Jamāʿah, upon the Salafi methodology
+(stated 2026-10-30). That is the scope; *which* scholars are included stays a human decision
+(see below). The product is one sentence: **show me where he said it.**
 
 `maqati3` is a working name — cheap to change while the site is not public, expensive
 after. Until 2026-10-27 the project was called `masdar` (مصدر, "source"): old commits,

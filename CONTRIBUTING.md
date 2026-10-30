@@ -20,6 +20,12 @@ exception. Issues in these areas carry the label
 [`integrity`](https://github.com/PSchmitz-Valckenberg/maqati3/labels/integrity). The
 reasoning is in [`CLAUDE.md`](CLAUDE.md), under *Integrity is structural*.
 
+## Scope
+
+The archive is of the scholars of Ahl as-Sunnah wal-Jamāʿah, upon the Salafi methodology.
+Pull requests and issues that propose widening or changing that scope are closed; it is
+the maintainers' decision, not a code question.
+
 ## Ways to help
 
 - **Code.** Pick an issue labelled
