@@ -5,10 +5,22 @@ How work happens in this repo — branching, TDD, commits, and what must never b
 
 ## Branching
 
-**Solo phase (current): commit directly to `main`.** One person works on this repo and
-reads every commit before it lands, so a branch-per-task buys isolation nobody needs yet
-and GitHub only counts contributions on the default branch anyway. The rule below still
-applies in full — TDD discipline does not relax just because the branch does.
+**Two paths into `main`** since the repo opened for contributions (2026-10-30):
+
+- **The maintainer commits directly to `main`.** One person has write access and reads
+  every commit before it lands, so a branch-per-task buys isolation nobody needs yet.
+  The rules below apply in full: TDD discipline does not relax just because the branch
+  does.
+- **Everyone else works in a fork**, on a `feat/<slug>` or `fix/<slug>` branch, and
+  opens a pull request (`CONTRIBUTING.md`). CI must be green and only the maintainer
+  merges: **squash** for an ordinary change, so the PR title becomes the one-line commit;
+  **rebase** for a test-first change, so its `[RED]` commit lands on `main` as its own
+  commit. Merge commits are switched off.
+
+A ruleset on `main` holds this in place on GitHub: no force-push, no deletion, and only
+the repository admin may update `main`, whether by pushing or by merging. CI (`.github/
+workflows/ci.yml`) runs on every push and pull request with a real Postgres, `fpcalc` and
+`ffmpeg`, and fails when a test was skipped.
 
 - Before every commit: the full test suite must be green. There is no separate "landing"
   step to catch a broken commit later — the commit *is* the landing.
@@ -16,10 +28,11 @@ applies in full — TDD discipline does not relax just because the branch does.
   no `--amend`, no force-push. If something needs fixing, fix it forward in a new commit.
   (History *before* it's pushed — e.g. cleaning up a commit made two minutes ago that
   hasn't left this machine — is fine to amend.)
-- If a second person joins, or solo work needs to try something without touching `main`
-  mid-task, switch back to feature branches: `feat/<short-slug>` off `main`, PR before
-  merging, no direct AI-driven commits to `main`. Update this section when that happens
-  — don't let the two models coexist undocumented.
+- If a second person gets **write access** to this repository, or solo work needs to try
+  something without touching `main` mid-task, the maintainer switches to feature
+  branches too: `feat/<short-slug>` off `main`, PR before merging, no direct AI-driven
+  commits to `main`. Update this section when that happens — don't let the two models
+  coexist undocumented.
 
 ## Commits
 
@@ -74,8 +87,8 @@ cross-cutting check: grep all call sites, including test fixtures, for the blast
 ```bash
 cd backend && uv run pytest                  # all
 cd backend && uv run pytest tests/<file>     # during a TDD cycle
-cd backend && uv run ruff check . && uv run mypy .
-cd frontend && npm test && npm run lint
+cd backend && uv run ruff check src tests && uv run mypy src
+cd frontend && npm test && npm run lint && npx tsc --noEmit
 ```
 
 During a red-green-refactor cycle run only the module's own tests. Run the full suite

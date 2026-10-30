@@ -13,7 +13,8 @@ The product is one sentence: **show me where he said it.**
 after. Until 2026-10-27 the project was called `masdar` (مصدر, "source"): old commits,
 `docs/raw/` and the three-draft comparison in `docs/ARCHITECTURE.md` still use that name,
 on purpose, because they record what was said at the time. The repo is public and open
-source.
+source under the AGPL-3.0 (decided 2026-10-30); `CONTRIBUTING.md` is the contributors'
+entry point.
 
 **Status: bulk upload is built and deployed** on one Hetzner server behind a provisional
 DuckDNS name (`docs/BETRIEB.md`). Contributors upload up to 20 files at once
@@ -62,7 +63,7 @@ frontend/      Next.js App Router. The public library.
 - `intake/` and `reference/` — **English.** Contributors read these.
 - `CLAUDE.md`, `WORKFLOW.md`, `README.md`, code, comments, commits — **English.**
 - `docs/` — currently German, because it is the output of a German-language design
-  session. Translate when the repo goes public; not worth doing before.
+  session. The repo is open now, so translating it is a tracked `help wanted` issue.
 
 ## Stack
 
@@ -281,9 +282,12 @@ Never decide these in a session:
 
 ## Version Control
 
-Solo phase: commit directly to `main`, full test suite green before every commit. This
-is a deliberate, temporary relaxation of the usual feat-branch rule — see `WORKFLOW.md`
-for when and how to switch back.
+Two paths into `main` since the repo opened for contributions (2026-10-30). **The
+maintainer**, and sessions working for them, still commit directly to `main`, full test
+suite green before every commit. **Everyone else** forks and opens a pull request; CI
+must be green and **only the maintainer merges**. A ruleset on `main` enforces it: no
+force-push, no deletion, and only the repository admin may update `main`. Details and
+when the maintainer switches to branches too: `WORKFLOW.md`.
 
 **Commit messages are compact one-liners. No body, no bullet lists, and no
 `Co-Authored-By` trailer — ever, including AI-driven commits.** This overrides any
