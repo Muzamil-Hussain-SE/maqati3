@@ -1,0 +1,101 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A pull request from a fork runs with a read-only token and no secrets. Nothing here
+# needs more, so nothing gets more.
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    # `bash` (not the default `sh -e`) so a pipe fails when its first command does.
+    shell: bash
+
+jobs:
+  backend:
+    name: Backend
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        # The image the server runs (deploy/compose.yml). A migration that only works
+        # against some other Postgres would pass here and fail on deploy.
+        image: paradedb/paradedb:0.26.3-pg17
+        env:
+          POSTGRES_USER: maqati3
+          POSTGRES_PASSWORD: ci-only
+          POSTGRES_DB: maqati3
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U maqati3 -d maqati3"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+    env:
+      DATABASE_URL: postgresql://maqati3:ci-only@localhost:5432/maqati3
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install fpcalc and ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libchromaprint-tools ffmpeg
+
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          python-version: "3.13"
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+
+      - run: uv sync --locked
+      - run: uv run ruff check src tests
+      - run: uv run mypy src
+
+      # The database, fingerprint and end-to-end tests skip themselves when Postgres,
+      # fpcalc or ffmpeg is missing. Here all three are present, so a skip means the
+      # suite has quietly stopped testing something.
+      - name: Tests (none may be skipped)
+        run: |
+          uv run pytest -rs | tee pytest.log
+          if grep -qE '[0-9]+ skipped' pytest.log; then
+            echo "::error::tests were skipped although Postgres, fpcalc and ffmpeg are available"
+            exit 1
+          fi
+
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm ci
+      - run: npm run lint
+      - run: npx tsc --noEmit
+      - run: npm test
+      - run: npm run build
