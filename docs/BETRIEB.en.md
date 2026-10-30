@@ -68,7 +68,7 @@ https://<domain>/ar/upload#k=<UPLOAD_KEY>
 
 ## The Admin Dashboard
 
-Address: `https://<domain>/de/admin` (also `/en/`, `/ar/`). Workflow and rationale: `CLAUDE.md`, "The Admin Workflow". In summary: admins log in via Google, review retained uploads with player, assign scholar, and **register** the video (creates library entry, attribution marked "not certain") or **discard** it. Every admin action is logged with the admin's email in the `admin_log` table.
+Address: `https://<domain>/de/admin` (also `/en/`, `/ar/`). Workflow and rationale: `CLAUDE.md`, "The Admin Workflow". In summary: admins log in via Google, review retained uploads with player, assign scholar, and **register** the video (creates library entry, attribution stays "not sure") or **discard** it. Every admin action is logged with the admin's email in the `admin_log` table.
 
 ### Setup (one-off, ~15 minutes, requires final domain)
 
