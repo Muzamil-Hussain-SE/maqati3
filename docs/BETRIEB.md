@@ -62,7 +62,6 @@ Die vier Admin-Werte gehören zusammen: **alle oder keine**. Keine → der Admin
 geschlossen (jede Adresse antwortet 503). Nur ein Teil → der Server startet nicht, mit
 Meldung, welcher Wert fehlt.
 
-`.env.example` führt diese Schlüssel noch nicht; das ist ein offenes Issue.
 
 ## Ohne Docker (Entwicklung)
 
