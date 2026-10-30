@@ -10,9 +10,9 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
-from maqati3.cli_admin import run_admin_command
 
 from maqati3.api.desk import AdminUser, LogRecord
+from maqati3.cli_admin import run_admin_command
 
 
 class FakeAdmins:
